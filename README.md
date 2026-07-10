@@ -26,6 +26,10 @@ Auth.js, Stripe Checkout, and Tailwind + shadcn/ui.
 - Server Actions as the mutation layer, each re-checking authorization
 - Zod validation on every external input
 - Stripe webhook with signature verification and idempotent fulfilment
+- Stock reserved with a conditional update, so concurrent buyers cannot oversell
+- Order confirmation scoped to the buyer — an order number is not a capability
+- Rate limiting on sign-in, registration and checkout
+- CSP with a per-request nonce, plus HSTS, `nosniff` and frame protection
 
 ## Quick start
 
@@ -105,6 +109,8 @@ proxy.ts            optimistic /admin redirect — not authorization
 - **Every admin route and action calls `requireAdmin()`.** Hiding a link is not
   access control, and neither is `proxy.ts`.
 - **Never trust a client-sent price.** Recompute from the database.
+- **An identifier is not an authorization.** Loading a row by id or order number
+  must still check the caller is entitled to it.
 
 See [PLAN.md](PLAN.md) for the architecture, the security model, what was
 verified, and the roadmap.

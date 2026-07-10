@@ -143,6 +143,41 @@ These are the rules the code is written to, not aspirations.
 8. **Open-redirect guard.** `?callbackUrl=` is rejected unless it is a
    same-site path.
 
+9. **An order number is not a capability.** `/checkout/success?order=…` returns
+   the order only if the caller owns it (signed-in user) or still holds the
+   httpOnly guest-cart cookie the order was created from. A guessed order number
+   is indistinguishable from a nonexistent one. The page is `noindex` and
+   `force-dynamic`.
+   *Verified:* before the fix, an anonymous `curl` printed a stranger's item and
+   total; after, it prints nothing.
+
+10. **Stock cannot go negative.** Checkout's stock check and the webhook's
+    decrement are not one atomic step, so two buyers can both pass the check
+    before either pays. The decrement is a conditional
+    `updateMany({ where: { stock: { gte: qty } } })` — the database arbitrates,
+    and the loser gets `count === 0`. That order stays `PAID` (the customer was
+    charged) and is flagged `needsReview` for a human to refund or restock.
+    *Verified:* two concurrent paid webhooks against one unit of stock left it at
+    0, not −1, and flagged the loser.
+
+11. **Auth endpoints are rate limited.** 8 sign-ins per IP per 10 minutes, 5
+    registrations per hour, 20 checkout sessions per 10 minutes. Applied in
+    `proxy.ts` (for direct POSTs to the Auth.js endpoint) *and* inside the Server
+    Actions, because `signIn` runs in-process and never passes through the proxy.
+    *Verified:* the 9th sign-in attempt returns 429.
+    **Caveat:** the counter lives in process memory. It stops one machine
+    guessing one instance. Behind a horizontally scaled deploy, move it to Redis —
+    `lib/rate-limit.ts` keeps its interface.
+
+12. **CSP with a per-request nonce**, plus `X-Frame-Options`, `nosniff`,
+    `Referrer-Policy`, `Permissions-Policy`, and HSTS in production.
+    `script-src` is `'self' 'nonce-…' 'strict-dynamic'`. `style-src` allows
+    `'unsafe-inline'` because Tailwind v4 and Sonner inject style tags a nonce
+    cannot cover — style injection is a far weaker vector, and `script-src` stays
+    strict. `x-powered-by` is off.
+    *Verified:* headers present, and the browser console reports zero CSP
+    violations across the storefront.
+
 ---
 
 ## 4. Build phases
@@ -197,9 +232,16 @@ In rough priority order:
    `requireAdmin()`; the `charge.refunded` webhook already writes `REFUNDED`.
 6. **Discount codes** and **tax** (`taxCents` exists on `Order` and is always 0).
 7. **Automated tests.** The verifications in section 5 were run by hand. The
-   webhook idempotency case in particular deserves to be a permanent test.
-8. **Guest cart adoption on sign-in.** A guest who signs in gets their user cart,
-   and the guest cart is orphaned. It should merge.
+   webhook idempotency case, the oversell race, and the order-page IDOR each
+   deserve to be permanent regression tests — they are exactly the failures that
+   a future refactor would reintroduce silently.
+8. ~~Guest cart adoption on sign-in.~~ Done: merged in the Auth.js `signIn`
+   event, with a Server Action fallback.
+9. **Distributed rate limiting.** `lib/rate-limit.ts` counts in process memory.
+   Swap the store for Redis before running more than one instance.
+10. **`npm audit`** reports a moderate advisory in `postcss`, reached only as a
+    transitive dependency of Next itself. `npm audit fix --force` would downgrade
+    Next to v9; leave it until Next ships a bump.
 
 ---
 
@@ -223,7 +265,14 @@ Run against the real dev server and a real Postgres, not mocks.
 | Webhook, tampered body | 400 |
 | Webhook, valid signature | 200, order `PAID`, address captured |
 | Webhook, **redelivered** | 200, stock decremented **once** (40 → 38, not 36) |
-| `npm run build` | passes, 16 routes |
+| Order page, anonymous, guessed number | **before:** leaked item + total · **after:** nothing |
+| Two concurrent paid webhooks, 1 unit of stock | **before:** stock −1 (oversold) · **after:** stock 0, loser flagged `needsReview` |
+| 9th sign-in attempt from one IP | 429 |
+| CSP / security headers | present; zero console violations |
+| `x-powered-by` | removed |
+| Guest cart + sign-in | 3 items merged into the user cart, guest cart deleted |
+| Dark mode toggle | `.dark` applied, persisted to localStorage |
+| `npm run build` | passes |
 | `tsc --noEmit` / `eslint` | clean |
 
 ---

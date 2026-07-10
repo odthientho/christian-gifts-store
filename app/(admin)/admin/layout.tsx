@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { AdminNav } from "@/components/admin/admin-nav";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function AdminLayout({
   children,
@@ -35,14 +36,18 @@ export default async function AdminLayout({
           <p className="truncate text-xs text-muted-foreground" title={admin.email}>
             {admin.email}
           </p>
-          <div className="-ml-2 mt-1">
-            <SignOutButton />
+          <div className="mt-1 flex items-center justify-between">
+            <div className="-ml-2">
+              <SignOutButton />
+            </div>
+            <ThemeToggle />
           </div>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex justify-end border-b px-4 py-2 lg:hidden">
+        <div className="flex items-center justify-end gap-1 border-b px-4 py-2 lg:hidden">
+          <ThemeToggle />
           <SignOutButton />
         </div>
         <main className="flex-1">{children}</main>

@@ -3,7 +3,10 @@ import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 
-export const CART_COOKIE = "cgs_cart";
+// Defined in cart-merge.ts, which has no dependency on lib/auth.ts, so that
+// lib/auth.ts can read the cookie name without an import cycle.
+export { CART_COOKIE } from "@/lib/cart-merge";
+import { CART_COOKIE } from "@/lib/cart-merge";
 
 /** Free shipping at or above this subtotal. Cents. */
 export const FREE_SHIPPING_THRESHOLD_CENTS = 5_000;

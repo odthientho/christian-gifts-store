@@ -1,12 +1,14 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
+import { headers } from "next/headers";
 
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { getCart, shippingForSubtotal } from "@/lib/cart";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
 import { checkoutSchema } from "@/lib/validations/cart";
+import { clientIp, rateLimit, LIMITS } from "@/lib/rate-limit";
 
 export type CheckoutResult =
   | { ok: true; url: string }
@@ -32,6 +34,18 @@ function siteUrl(): string {
 export async function createCheckoutSessionAction(input: {
   email: string;
 }): Promise<CheckoutResult> {
+  // Each call writes an order row and creates a Stripe session. Unthrottled,
+  // this is a cheap way for a script to fill the orders table.
+  const ip = clientIp(await headers());
+  const throttled = rateLimit(
+    `checkout:${ip}`,
+    LIMITS.checkout.limit,
+    LIMITS.checkout.windowMs,
+  );
+  if (!throttled.ok) {
+    return { ok: false, error: "Too many checkout attempts. Try again shortly." };
+  }
+
   if (!isStripeConfigured()) {
     return {
       ok: false,

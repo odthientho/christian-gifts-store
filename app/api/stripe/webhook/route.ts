@@ -92,11 +92,30 @@ async function fulfillOrder(session: Stripe.Checkout.Session): Promise<void> {
       select: { productId: true, quantity: true },
     });
 
+    // Decrement conditionally. Checkout verified stock before redirecting to
+    // Stripe, but two buyers can both pass that check before either pays, and
+    // an unconditional `decrement` would then drive stock negative and oversell.
+    //
+    // `WHERE stock >= quantity` makes the database arbitrate: the UPDATE either
+    // matches a row and decrements it atomically, or matches nothing. Whoever
+    // loses the race gets count === 0.
+    let short = false;
     for (const item of items) {
       if (!item.productId) continue;
-      await tx.product.update({
-        where: { id: item.productId },
+      const reserved = await tx.product.updateMany({
+        where: { id: item.productId, stock: { gte: item.quantity } },
         data: { stock: { decrement: item.quantity } },
+      });
+      if (reserved.count === 0) short = true;
+    }
+
+    // The customer has already been charged, so the order stays PAID. Flag it
+    // instead: a human must refund or restock. Silently absorbing this would
+    // mean taking money for goods that do not exist.
+    if (short) {
+      await tx.order.update({
+        where: { id: orderId },
+        data: { needsReview: true },
       });
     }
 

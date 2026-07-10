@@ -2,17 +2,37 @@
 
 import { AuthError } from "next-auth";
 import { unstable_rethrow } from "next/navigation";
+import { headers } from "next/headers";
 
 import { db } from "@/lib/db";
 import { signIn, hashPassword } from "@/lib/auth";
 import { loginSchema, registerSchema } from "@/lib/validations/auth";
+import { clientIp, rateLimit, LIMITS } from "@/lib/rate-limit";
 
 export type AuthActionResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * A Server Action is a public HTTP endpoint. `signIn` runs in-process here, so
+ * proxy.ts never sees it — this path needs its own limiter.
+ */
+async function throttle(
+  bucket: string,
+  { limit, windowMs }: { limit: number; windowMs: number },
+): Promise<string | null> {
+  const ip = clientIp(await headers());
+  const { ok, retryAfter } = rateLimit(`${bucket}:${ip}`, limit, windowMs);
+  if (ok) return null;
+  const minutes = Math.max(1, Math.ceil(retryAfter / 60));
+  return `Too many attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
+}
 
 export async function loginAction(
   input: unknown,
   callbackUrl?: string,
 ): Promise<AuthActionResult> {
+  const throttled = await throttle("login", LIMITS.login);
+  if (throttled) return { ok: false, error: throttled };
+
   const parsed = loginSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "Enter a valid email and password." };
@@ -40,6 +60,9 @@ export async function loginAction(
 }
 
 export async function registerAction(input: unknown): Promise<AuthActionResult> {
+  const throttled = await throttle("register", LIMITS.register);
+  if (throttled) return { ok: false, error: throttled };
+
   const parsed = registerSchema.safeParse(input);
   if (!parsed.success) {
     return {

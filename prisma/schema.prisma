@@ -225,6 +225,10 @@ model Order {
   shippingPostal  String?
   shippingCountry String?
 
+  // Set when fulfilment could not reserve stock — the payment succeeded but
+  // there was not enough inventory left. A human has to refund or restock.
+  needsReview Boolean @default(false)
+
   paidAt    DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

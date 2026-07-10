@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { CART_COOKIE } from "@/lib/cart";
+import { ensureUserCart, mergeGuestCart } from "@/lib/cart-merge";
 import { addToCartSchema, updateCartItemSchema } from "@/lib/validations/cart";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -24,13 +25,19 @@ async function resolveCart(): Promise<string> {
   const jar = await cookies();
 
   if (user) {
-    // A signed-in user owns exactly one cart. If they had a guest cart in this
-    // browser, adopt its lines so nothing is lost at sign-in.
-    const existing = await db.cart.findUnique({ where: { userId: user.id } });
-    if (existing) return existing.id;
+    const userCartId = await ensureUserCart(user.id);
 
-    const created = await db.cart.create({ data: { userId: user.id } });
-    return created.id;
+    // The merge normally happens in the Auth.js `signIn` event. This is the
+    // fallback for a browser that still holds a guest cookie (e.g. it signed in
+    // before this existed); mergeGuestCart is idempotent. Clearing the cookie
+    // is only possible here, in a Server Action.
+    const guestToken = jar.get(CART_COOKIE)?.value;
+    if (guestToken) {
+      await mergeGuestCart(guestToken, userCartId);
+      jar.delete(CART_COOKIE);
+    }
+
+    return userCartId;
   }
 
   const token = jar.get(CART_COOKIE)?.value;

@@ -1,12 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { db } from "@/lib/db";
+import { getOwnedOrder } from "@/lib/orders";
 import { formatCents } from "@/lib/money";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Order confirmed" };
+// This page renders a specific person's purchase and the order number travels
+// in the URL, so keep it out of caches and out of search indexes.
+export const metadata: Metadata = {
+  title: "Order confirmed",
+  robots: { index: false, follow: false },
+};
+
+export const dynamic = "force-dynamic";
 
 export default async function CheckoutSuccessPage({
   searchParams,
@@ -15,12 +22,10 @@ export default async function CheckoutSuccessPage({
 }) {
   const { order: orderNumber } = await searchParams;
 
-  const order = orderNumber
-    ? await db.order.findUnique({
-        where: { orderNumber },
-        include: { items: true },
-      })
-    : null;
+  // An order number alone is not proof of ownership. getOwnedOrder returns null
+  // unless the caller owns the order or holds the guest-cart cookie it came
+  // from — so a guessed order number looks exactly like a nonexistent one.
+  const order = orderNumber ? await getOwnedOrder(orderNumber) : null;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-24 text-center">
@@ -70,7 +75,8 @@ export default async function CheckoutSuccessPage({
         </div>
       ) : (
         <p className="mt-8 text-sm text-muted-foreground">
-          We could not find that order number.
+          We could not find that order. If you have just paid, check the receipt
+          in your email — the confirmation link there will open it.
         </p>
       )}
 

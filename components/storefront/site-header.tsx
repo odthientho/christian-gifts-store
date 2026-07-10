@@ -5,6 +5,7 @@ import { getCartCount } from "@/lib/cart";
 import { getCurrentUser } from "@/lib/auth";
 import { buttonVariants } from "@/components/ui/button";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
 export async function SiteHeader() {
@@ -29,6 +30,8 @@ export async function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-1.5">
+          <ThemeToggle />
+
           {user?.role === "ADMIN" && (
             <Link
               href="/admin"

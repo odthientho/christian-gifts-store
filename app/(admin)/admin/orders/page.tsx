@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Receipt } from "lucide-react";
+import { AlertTriangle, Receipt } from "lucide-react";
 
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -67,8 +67,17 @@ export default async function AdminOrdersPage() {
             <TableBody>
               {orders.map((o) => (
                 <TableRow key={o.id}>
-                  <TableCell className="font-mono text-xs">
+                  <TableCell className="font-mono text-xs whitespace-nowrap">
                     {o.orderNumber}
+                    {o.needsReview && (
+                      <span
+                        className="mt-1 flex items-center gap-1 font-sans text-[0.7rem] font-medium text-destructive"
+                        title="Paid, but stock ran out before fulfilment. Refund or restock."
+                      >
+                        <AlertTriangle className="size-3" strokeWidth={2} />
+                        Needs review
+                      </span>
+                    )}
                   </TableCell>
 
                   <TableCell>
