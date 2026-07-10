@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { Loader2, Lock, TriangleAlert } from "lucide-react";
 
 import { createCheckoutSessionAction } from "@/server/checkout";
 import { Button } from "@/components/ui/button";
@@ -31,9 +32,11 @@ export function CheckoutForm({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3.5">
       <div className="space-y-1.5">
-        <Label htmlFor="email">Email for your receipt</Label>
+        <Label htmlFor="email" className="text-xs text-muted-foreground">
+          Email for your receipt
+        </Label>
         <Input
           id="email"
           type="email"
@@ -41,22 +44,39 @@ export function CheckoutForm({
           placeholder="you@example.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          className="h-10"
         />
       </div>
 
       <Button
-        className="w-full"
-        size="lg"
+        className="h-11 w-full gap-2 text-sm"
         disabled={pending || !email}
         onClick={checkout}
       >
-        {pending ? "Redirecting…" : "Checkout"}
+        {pending ? (
+          <>
+            <Loader2 className="size-4 animate-spin" />
+            Redirecting…
+          </>
+        ) : (
+          <>
+            <Lock className="size-3.5" strokeWidth={2} />
+            Checkout
+          </>
+        )}
       </Button>
 
-      {!stripeReady && (
-        <p className="text-xs text-amber-600">
-          Stripe keys are not configured. Add <code>STRIPE_SECRET_KEY</code> to{" "}
-          <code>.env</code> to enable payment.
+      {stripeReady ? (
+        <p className="text-center text-xs text-muted-foreground">
+          Secure payment by Stripe. Cards never touch our server.
+        </p>
+      ) : (
+        <p className="flex items-start gap-2 rounded-lg bg-brass/15 p-3 text-xs text-brass-foreground">
+          <TriangleAlert className="mt-px size-3.5 shrink-0" strokeWidth={2} />
+          <span>
+            Payments are not configured. Add <code>STRIPE_SECRET_KEY</code> to{" "}
+            <code>.env</code> to enable checkout.
+          </span>
         </p>
       )}
     </div>

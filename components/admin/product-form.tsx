@@ -143,7 +143,7 @@ export function ProductForm({
   }
 
   return (
-    <form onSubmit={submit} className="max-w-2xl space-y-6">
+    <form onSubmit={submit} className="max-w-2xl space-y-6 rounded-xl border bg-card p-6">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Title" htmlFor="title">
           <Input
@@ -189,7 +189,7 @@ export function ProductForm({
             id="type"
             value={values.type}
             onChange={(e) => set("type", e.target.value as "BOOK" | "GIFT")}
-            className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+            className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           >
             <option value="BOOK">Book</option>
             <option value="GIFT">Gift</option>
@@ -226,7 +226,7 @@ export function ProductForm({
             id="category"
             value={values.categoryId}
             onChange={(e) => set("categoryId", e.target.value)}
-            className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+            className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           >
             <option value="">None</option>
             {categories.map((c) => (
@@ -260,8 +260,8 @@ export function ProductForm({
         />
       </div>
 
-      <fieldset className="rounded-lg border p-4">
-        <legend className="px-2 text-sm font-medium">
+      <fieldset className="rounded-lg border bg-muted/30 p-4">
+        <legend className="rounded-md bg-card px-2 text-sm font-medium">
           {values.type === "BOOK" ? "Book details" : "Gift details"}
         </legend>
 
@@ -296,7 +296,7 @@ export function ProductForm({
                     format: e.target.value as ProductFormValues["book"]["format"],
                   })
                 }
-                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               >
                 <option value="PAPERBACK">Paperback</option>
                 <option value="HARDCOVER">Hardcover</option>
@@ -422,7 +422,7 @@ function Checkbox({
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="size-4 rounded border"
+        className="size-4 rounded border accent-primary"
       />
       {label}
     </label>

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Loader2, ShoppingBag } from "lucide-react";
 
 import { addToCartAction } from "@/server/cart";
 import { Button } from "@/components/ui/button";
@@ -33,26 +34,44 @@ export function AddToCartButton({
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <label htmlFor="qty" className="sr-only">
-        Quantity
-      </label>
-      <select
-        id="qty"
-        value={quantity}
-        disabled={disabled || pending}
-        onChange={(e) => setQuantity(Number(e.target.value))}
-        className="h-9 rounded-md border bg-background px-2 text-sm"
-      >
-        {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-          <option key={n} value={n}>
-            {n}
-          </option>
-        ))}
-      </select>
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="flex h-11 items-center rounded-lg border bg-card px-1">
+        <label htmlFor="qty" className="sr-only">
+          Quantity
+        </label>
+        <select
+          id="qty"
+          value={quantity}
+          disabled={disabled || pending}
+          onChange={(e) => setQuantity(Number(e.target.value))}
+          className="h-9 rounded-md bg-transparent px-2 text-sm tabular-nums outline-none disabled:opacity-50"
+        >
+          {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </div>
 
-      <Button onClick={add} disabled={disabled || pending} size="lg">
-        {pending ? "Adding…" : disabled ? "Sold out" : "Add to cart"}
+      <Button
+        onClick={add}
+        disabled={disabled || pending}
+        className="h-11 min-w-44 flex-1 gap-2 px-6 text-sm sm:flex-none"
+      >
+        {pending ? (
+          <>
+            <Loader2 className="size-4 animate-spin" />
+            Adding…
+          </>
+        ) : disabled ? (
+          "Sold out"
+        ) : (
+          <>
+            <ShoppingBag className="size-4" strokeWidth={1.75} />
+            Add to cart
+          </>
+        )}
       </Button>
     </div>
   );

@@ -5,27 +5,30 @@ import { getCartCount } from "@/lib/cart";
 import { getCurrentUser } from "@/lib/auth";
 import { buttonVariants } from "@/components/ui/button";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { cn } from "@/lib/utils";
 
 export async function SiteHeader() {
   const [count, user] = await Promise.all([getCartCount(), getCurrentUser()]);
 
   return (
-    <header className="border-b bg-background/95 sticky top-0 z-40 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
-        <Link href="/" className="font-semibold tracking-tight text-lg">
+    <header className="sticky top-0 z-40 border-b border-border/70 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/65">
+      <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:gap-6 sm:px-6">
+        <Link
+          href="/"
+          className="font-heading text-xl font-semibold tracking-tight"
+        >
           Cornerstone
+          <span className="text-brass">.</span>
         </Link>
 
-        <nav className="hidden gap-6 text-sm sm:flex">
-          <Link href="/books" className="hover:text-primary transition-colors">
-            Books
-          </Link>
-          <Link href="/gifts" className="hover:text-primary transition-colors">
-            Gifts
-          </Link>
+        {/* Kept visible on phones: these two links are the only way to reach
+            the catalog from the header, and there is no hamburger menu. */}
+        <nav className="flex flex-1 items-center gap-0.5 sm:gap-1">
+          <NavLink href="/books">Books</NavLink>
+          <NavLink href="/gifts">Gifts</NavLink>
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {user?.role === "ADMIN" && (
             <Link
               href="/admin"
@@ -48,14 +51,34 @@ export async function SiteHeader() {
 
           <Link
             href="/cart"
-            aria-label={`Cart, ${count} items`}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
+            aria-label={
+              count === 0 ? "Cart, empty" : `Cart, ${count} items`
+            }
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "relative gap-2",
+            )}
           >
-            <ShoppingBag className="size-4" />
-            <span className="ml-1 tabular-nums">{count}</span>
+            <ShoppingBag className="size-4" strokeWidth={1.75} />
+            {count > 0 && (
+              <span className="grid size-[1.15rem] place-items-center rounded-full bg-primary text-[0.65rem] font-semibold tabular-nums text-primary-foreground">
+                {count}
+              </span>
+            )}
           </Link>
         </div>
       </div>
     </header>
+  );
+}
+
+function NavLink({ href, children }: { href: string; children: string }) {
+  return (
+    <Link
+      href={href}
+      className="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+    >
+      {children}
+    </Link>
   );
 }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { Package, Trash2 } from "lucide-react";
 
 import type { CartLine } from "@/lib/cart";
 import { formatCents } from "@/lib/money";
@@ -29,27 +29,34 @@ export function CartLines({ lines }: { lines: CartLine[] }) {
   return (
     <ul className="divide-y">
       {lines.map((line) => (
-        <li key={line.productId} className="flex gap-4 py-4">
-          <div className="size-20 shrink-0 overflow-hidden rounded-md bg-muted">
+        <li
+          key={line.productId}
+          className="flex gap-4 py-5 transition-opacity data-[pending=true]:opacity-60"
+          data-pending={pending}
+        >
+          <Link
+            href={`/products/${line.slug}`}
+            className="size-20 shrink-0 overflow-hidden rounded-lg border bg-card"
+          >
             {line.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={line.imageUrl}
-                alt={line.title}
+                alt=""
                 className="size-full object-cover"
               />
             ) : (
-              <div className="flex size-full items-center justify-center text-2xl opacity-30">
-                📦
+              <div className="product-placeholder grid size-full place-items-center">
+                <Package className="size-6 text-primary/35" strokeWidth={1.25} />
               </div>
             )}
-          </div>
+          </Link>
 
-          <div className="flex flex-1 flex-col justify-between">
+          <div className="flex min-w-0 flex-1 flex-col justify-between gap-3">
             <div className="flex justify-between gap-4">
               <Link
                 href={`/products/${line.slug}`}
-                className="font-medium hover:underline"
+                className="font-heading font-medium leading-snug hover:underline"
               >
                 {line.title}
               </Link>
@@ -59,7 +66,7 @@ export function CartLines({ lines }: { lines: CartLine[] }) {
             </div>
 
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <label htmlFor={`qty-${line.productId}`} className="sr-only">
                   Quantity for {line.title}
                 </label>
@@ -70,7 +77,7 @@ export function CartLines({ lines }: { lines: CartLine[] }) {
                   onChange={(e) =>
                     update(line.productId, Number(e.target.value))
                   }
-                  className="h-8 rounded-md border bg-background px-2 text-sm"
+                  className="h-9 rounded-lg border bg-card px-2.5 text-sm tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50"
                 >
                   {Array.from(
                     { length: Math.max(line.stock, line.quantity) },
@@ -93,9 +100,10 @@ export function CartLines({ lines }: { lines: CartLine[] }) {
                 size="sm"
                 disabled={pending}
                 onClick={() => update(line.productId, 0)}
-                aria-label={`Remove ${line.title}`}
+                aria-label={`Remove ${line.title} from cart`}
+                className="text-muted-foreground hover:text-destructive"
               >
-                <Trash2 className="size-4" />
+                <Trash2 className="size-4" strokeWidth={1.75} />
               </Button>
             </div>
           </div>

@@ -62,7 +62,7 @@ export function RegisterForm() {
         <p className="text-xs text-muted-foreground">At least 8 characters.</p>
       </div>
 
-      <Button type="submit" className="w-full" disabled={pending}>
+      <Button type="submit" className="h-10 w-full" disabled={pending}>
         {pending ? "Creating account…" : "Create account"}
       </Button>
 

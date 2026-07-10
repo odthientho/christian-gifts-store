@@ -24,11 +24,13 @@ export default async function CheckoutSuccessPage({
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-24 text-center">
-      <div className="mx-auto mb-6 flex size-14 items-center justify-center rounded-full bg-emerald-100 text-3xl">
+      <div className="mx-auto mb-6 grid size-14 place-items-center rounded-full bg-emerald-500/15 text-2xl text-emerald-600">
         ✓
       </div>
 
-      <h1 className="text-3xl font-semibold tracking-tight">Thank you</h1>
+      <h1 className="font-heading text-3xl font-semibold tracking-tight">
+        Thank you
+      </h1>
       <p className="mt-2 text-muted-foreground">
         Your order has been received. A receipt is on its way to your inbox.
       </p>
