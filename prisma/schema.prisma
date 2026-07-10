@@ -1,0 +1,254 @@
+// Christian Gifts & Books — data model
+//
+// Money rule: every monetary value is an Int of cents. A $12.99 book is 1299.
+// Never store money as Float/Decimal here; format to a string only at display
+// time via lib/money.ts.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Auth (Auth.js / NextAuth v5 Prisma adapter models)
+// ---------------------------------------------------------------------------
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  // Null for OAuth-only users. Never store a plaintext password.
+  passwordHash  String?
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+  orders   Order[]
+  cart     Cart?
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Catalog
+// ---------------------------------------------------------------------------
+
+enum ProductType {
+  BOOK
+  GIFT
+}
+
+model Category {
+  id       String    @id @default(cuid())
+  slug     String    @unique
+  name     String
+  products Product[]
+}
+
+model Product {
+  id          String      @id @default(cuid())
+  slug        String      @unique
+  title       String
+  description String      @db.Text
+  type        ProductType
+  // Cents. 1299 == $12.99
+  priceCents  Int
+  imageUrl    String?
+  stock       Int         @default(0)
+  active      Boolean     @default(true)
+  featured    Boolean     @default(false)
+  categoryId  String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  category   Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  // Type-specific fields live in their own tables rather than as a wide row of
+  // nullable columns. A BOOK has a bookDetail; a GIFT has a giftDetail.
+  bookDetail BookDetail?
+  giftDetail GiftDetail?
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([type, active])
+  @@index([categoryId])
+}
+
+enum BookFormat {
+  HARDCOVER
+  PAPERBACK
+  EBOOK
+  AUDIOBOOK
+}
+
+model BookDetail {
+  productId   String     @id
+  author      String
+  isbn        String?    @unique
+  publisher   String?
+  pageCount   Int?
+  language    String     @default("English")
+  format      BookFormat @default(PAPERBACK)
+  publishedAt DateTime?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model GiftDetail {
+  productId  String  @id
+  material   String?
+  dimensions String?
+  // e.g. "Baptism", "Confirmation", "Wedding", "Christmas"
+  occasion   String?
+  handmade   Boolean @default(false)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Cart — one per signed-in user, or one per anonymous cookie token
+// ---------------------------------------------------------------------------
+
+model Cart {
+  id        String   @id @default(cuid())
+  userId    String?  @unique
+  // Opaque token stored in an httpOnly cookie for guests.
+  guestToken String? @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+}
+
+model CartItem {
+  id        String @id @default(cuid())
+  cartId    String
+  productId String
+  quantity  Int
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId])
+  @@index([cartId])
+}
+
+// ---------------------------------------------------------------------------
+// Orders
+// ---------------------------------------------------------------------------
+
+enum OrderStatus {
+  PENDING
+  PAID
+  FULFILLED
+  CANCELLED
+  REFUNDED
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  orderNumber String      @unique
+  userId      String?
+  email       String
+  status      OrderStatus @default(PENDING)
+
+  // The cart this order was created from. Lets the webhook empty the right cart
+  // on payment, for guests as well as signed-in users. Not a foreign key: the
+  // cart may be deleted later and the order must outlive it.
+  cartId String?
+
+  // All cents. Recomputed server-side at checkout; never trusted from client.
+  subtotalCents Int
+  shippingCents Int @default(0)
+  taxCents      Int @default(0)
+  totalCents    Int
+
+  // Stripe linkage. Unique so the webhook can be made idempotent.
+  stripeSessionId       String? @unique
+  stripePaymentIntentId String? @unique
+
+  shippingName    String?
+  shippingLine1   String?
+  shippingLine2   String?
+  shippingCity    String?
+  shippingState   String?
+  shippingPostal  String?
+  shippingCountry String?
+
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user  User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items OrderItem[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String?
+
+  // Snapshot the title and price at purchase time. Products get renamed and
+  // repriced; a historical order must not change when they do.
+  titleSnapshot  String
+  unitPriceCents Int
+  quantity       Int
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+}

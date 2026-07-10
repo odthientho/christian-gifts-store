@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: cgs-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cgs
+      POSTGRES_PASSWORD: cgs_local_dev
+      POSTGRES_DB: christian_gifts_store
+    ports:
+      - "5433:5432"
+    volumes:
+      - cgs-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cgs -d christian_gifts_store"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  cgs-pgdata:
