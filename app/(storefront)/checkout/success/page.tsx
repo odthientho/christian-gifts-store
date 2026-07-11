@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { getOwnedOrder } from "@/lib/orders";
 import { formatCents } from "@/lib/money";
+import { getDictionary } from "@/lib/i18n";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +21,10 @@ export default async function CheckoutSuccessPage({
 }: {
   searchParams: Promise<{ order?: string }>;
 }) {
-  const { order: orderNumber } = await searchParams;
+  const [{ order: orderNumber }, dict] = await Promise.all([
+    searchParams,
+    getDictionary(),
+  ]);
 
   // An order number alone is not proof of ownership. getOwnedOrder returns null
   // unless the caller owns the order or holds the guest-cart cookie it came
@@ -34,16 +38,14 @@ export default async function CheckoutSuccessPage({
       </div>
 
       <h1 className="font-heading text-3xl font-semibold tracking-tight">
-        Thank you
+        {dict.success.thankYou}
       </h1>
-      <p className="mt-2 text-muted-foreground">
-        Your order has been received. A receipt is on its way to your inbox.
-      </p>
+      <p className="mt-2 text-muted-foreground">{dict.success.received}</p>
 
       {order ? (
         <div className="mt-8 rounded-lg border p-6 text-left">
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Order</span>
+            <span className="text-muted-foreground">{dict.success.order}</span>
             <span className="font-mono">{order.orderNumber}</span>
           </div>
 
@@ -52,7 +54,10 @@ export default async function CheckoutSuccessPage({
               <li key={item.id} className="flex justify-between gap-4">
                 <span>
                   {item.titleSnapshot}
-                  <span className="text-muted-foreground"> × {item.quantity}</span>
+                  <span className="text-muted-foreground">
+                    {" "}
+                    × {item.quantity}
+                  </span>
                 </span>
                 <span className="tabular-nums">
                   {formatCents(item.unitPriceCents * item.quantity)}
@@ -62,26 +67,24 @@ export default async function CheckoutSuccessPage({
           </ul>
 
           <div className="mt-4 flex justify-between border-t pt-4 font-semibold">
-            <span>Total</span>
+            <span>{dict.success.total}</span>
             <span className="tabular-nums">{formatCents(order.totalCents)}</span>
           </div>
 
           {order.status === "PENDING" && (
             <p className="mt-4 text-xs text-muted-foreground">
-              Payment is still being confirmed. This page updates once Stripe
-              notifies us — it does not affect your order.
+              {dict.success.pending}
             </p>
           )}
         </div>
       ) : (
         <p className="mt-8 text-sm text-muted-foreground">
-          We could not find that order. If you have just paid, check the receipt
-          in your email — the confirmation link there will open it.
+          {dict.success.notFound}
         </p>
       )}
 
       <Link href="/" className={cn(buttonVariants(), "mt-8")}>
-        Continue shopping
+        {dict.success.continue}
       </Link>
     </div>
   );

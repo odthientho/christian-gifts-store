@@ -9,7 +9,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
+export type LoginLabels = {
+  email: string;
+  password: string;
+  signIn: string;
+  signingIn: string;
+  noAccount: string;
+  createOne: string;
+};
+
+export function LoginForm({
+  callbackUrl,
+  labels,
+}: {
+  callbackUrl?: string;
+  labels: LoginLabels;
+}) {
   const [pending, startTransition] = useTransition();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,7 +40,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
   return (
     <form onSubmit={submit} className="space-y-4">
       <div className="space-y-1.5">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="email">{labels.email}</Label>
         <Input
           id="email"
           type="email"
@@ -37,7 +52,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="password">Password</Label>
+        <Label htmlFor="password">{labels.password}</Label>
         <Input
           id="password"
           type="password"
@@ -49,13 +64,13 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
       </div>
 
       <Button type="submit" className="h-10 w-full" disabled={pending}>
-        {pending ? "Signing in…" : "Sign in"}
+        {pending ? labels.signingIn : labels.signIn}
       </Button>
 
       <p className="text-center text-sm text-muted-foreground">
-        No account?{" "}
+        {labels.noAccount}{" "}
         <Link href="/register" className="underline hover:text-foreground">
-          Create one
+          {labels.createOne}
         </Link>
       </p>
     </form>

@@ -1,10 +1,18 @@
-# Cornerstone — Christian Gifts & Books
+# Hải Đăng — Christian Gifts & Books
 
 A full e-commerce system for selling Christian books and gifts: a public
 storefront, a role-gated admin dashboard, and the backend that serves both.
 
 Built with Next.js 16 (App Router), TypeScript, PostgreSQL via Prisma 7,
 Auth.js, Stripe Checkout, and Tailwind + shadcn/ui.
+
+The storefront is **bilingual (Tiếng Việt / English)** with a header toggle,
+defaulting to Vietnamese. UI text and category names come from dictionaries in
+`lib/i18n/`; product titles stay in their original language. The visual design —
+coral-red and ice-blue palette, Be Vietnam Pro + Playfair Display type — follows
+the reference storefront at codochaidang.com, chosen with fonts that carry a real
+Vietnamese subset so tone-marked vowels render in-font. Prices are USD; the
+money model was left on its verified footing.
 
 ## Features
 

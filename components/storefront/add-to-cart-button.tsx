@@ -8,12 +8,22 @@ import { Loader2, ShoppingBag } from "lucide-react";
 import { addToCartAction } from "@/server/cart";
 import { Button } from "@/components/ui/button";
 
+export type AddToCartLabels = {
+  add: string;
+  adding: string;
+  added: string;
+  soldOut: string;
+  quantity: string;
+};
+
 export function AddToCartButton({
   productId,
   disabled,
+  labels,
 }: {
   productId: string;
   disabled?: boolean;
+  labels: AddToCartLabels;
 }) {
   const [quantity, setQuantity] = useState(1);
   const [pending, startTransition] = useTransition();
@@ -25,7 +35,7 @@ export function AddToCartButton({
       // component only ever sends an id and a quantity.
       const result = await addToCartAction({ productId, quantity });
       if (result.ok) {
-        toast.success("Added to cart");
+        toast.success(labels.added);
         router.refresh();
       } else {
         toast.error(result.error);
@@ -37,7 +47,7 @@ export function AddToCartButton({
     <div className="flex flex-wrap items-center gap-3">
       <div className="flex h-11 items-center rounded-lg border bg-card px-1">
         <label htmlFor="qty" className="sr-only">
-          Quantity
+          {labels.quantity}
         </label>
         <select
           id="qty"
@@ -62,14 +72,14 @@ export function AddToCartButton({
         {pending ? (
           <>
             <Loader2 className="size-4 animate-spin" />
-            Adding…
+            {labels.adding}
           </>
         ) : disabled ? (
-          "Sold out"
+          labels.soldOut
         ) : (
           <>
             <ShoppingBag className="size-4" strokeWidth={1.75} />
-            Add to cart
+            {labels.add}
           </>
         )}
       </Button>

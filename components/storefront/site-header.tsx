@@ -3,13 +3,20 @@ import { ShoppingBag } from "lucide-react";
 
 import { getCartCount } from "@/lib/cart";
 import { getCurrentUser } from "@/lib/auth";
+import { getDictionary, getLocale } from "@/lib/i18n";
 import { buttonVariants } from "@/components/ui/button";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LocaleToggle } from "@/components/locale-toggle";
 import { cn } from "@/lib/utils";
 
 export async function SiteHeader() {
-  const [count, user] = await Promise.all([getCartCount(), getCurrentUser()]);
+  const [count, user, dict, locale] = await Promise.all([
+    getCartCount(),
+    getCurrentUser(),
+    getDictionary(),
+    getLocale(),
+  ]);
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/70 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/65">
@@ -18,45 +25,49 @@ export async function SiteHeader() {
           href="/"
           className="font-heading text-xl font-semibold tracking-tight"
         >
-          Cornerstone
-          <span className="text-brass">.</span>
+          Hải Đăng<span className="text-primary">.</span>
         </Link>
 
-        {/* Kept visible on phones: these two links are the only way to reach
-            the catalog from the header, and there is no hamburger menu. */}
+        {/* Kept visible on phones: the only way to reach the catalog from the
+            header, and there is no hamburger menu. */}
         <nav className="flex flex-1 items-center gap-0.5 sm:gap-1">
-          <NavLink href="/books">Books</NavLink>
-          <NavLink href="/gifts">Gifts</NavLink>
+          <NavLink href="/books">{dict.nav.books}</NavLink>
+          <NavLink href="/gifts">{dict.nav.gifts}</NavLink>
         </nav>
 
         <div className="flex items-center gap-1.5">
+          <LocaleToggle locale={locale} />
           <ThemeToggle />
 
           {user?.role === "ADMIN" && (
             <Link
               href="/admin"
-              className={buttonVariants({ variant: "ghost", size: "sm" })}
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "sm" }),
+                "hidden sm:inline-flex",
+              )}
             >
-              Admin
+              {dict.nav.admin}
             </Link>
           )}
 
           {user ? (
-            <SignOutButton />
+            <SignOutButton label={dict.nav.signOut} />
           ) : (
             <Link
               href="/login"
-              className={buttonVariants({ variant: "ghost", size: "sm" })}
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "sm" }),
+                "hidden sm:inline-flex",
+              )}
             >
-              Sign in
+              {dict.nav.signIn}
             </Link>
           )}
 
           <Link
             href="/cart"
-            aria-label={
-              count === 0 ? "Cart, empty" : `Cart, ${count} items`
-            }
+            aria-label={dict.nav.cartLabel}
             className={cn(
               buttonVariants({ variant: "outline", size: "sm" }),
               "relative gap-2",
@@ -79,7 +90,7 @@ function NavLink({ href, children }: { href: string; children: string }) {
   return (
     <Link
       href={href}
-      className="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      className="rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground sm:px-3"
     >
       {children}
     </Link>

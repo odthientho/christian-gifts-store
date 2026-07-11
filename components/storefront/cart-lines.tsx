@@ -11,7 +11,13 @@ import { formatCents } from "@/lib/money";
 import { updateCartItemAction } from "@/server/cart";
 import { Button } from "@/components/ui/button";
 
-export function CartLines({ lines }: { lines: CartLine[] }) {
+export function CartLines({
+  lines,
+  removeLabel,
+}: {
+  lines: CartLine[];
+  removeLabel: string;
+}) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -100,7 +106,7 @@ export function CartLines({ lines }: { lines: CartLine[] }) {
                 size="sm"
                 disabled={pending}
                 onClick={() => update(line.productId, 0)}
-                aria-label={`Remove ${line.title} from cart`}
+                aria-label={`${removeLabel} — ${line.title}`}
                 className="text-muted-foreground hover:text-destructive"
               >
                 <Trash2 className="size-4" strokeWidth={1.75} />

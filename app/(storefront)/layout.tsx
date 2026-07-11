@@ -1,50 +1,52 @@
 import Link from "next/link";
+
+import { getDictionary } from "@/lib/i18n";
 import { SiteHeader } from "@/components/storefront/site-header";
 
-export default function StorefrontLayout({
+export default async function StorefrontLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const dict = await getDictionary();
+
   return (
     <>
       <SiteHeader />
       <main className="flex-1">{children}</main>
 
-      <footer className="mt-24 border-t bg-muted/40">
+      <footer className="mt-24 border-t bg-ice">
         <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
           <div className="flex flex-col gap-10 sm:flex-row sm:justify-between">
             <div className="max-w-xs">
               <p className="font-heading text-lg font-semibold tracking-tight">
-                Cornerstone<span className="text-brass">.</span>
+                Hải Đăng<span className="text-primary">.</span>
               </p>
               <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                Handmade gifts and carefully chosen books, for every season of
-                faith.
+                {dict.brand.tagline}
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-12 text-sm sm:gap-16">
-              <FooterColumn title="Shop">
-                <FooterLink href="/books">Books</FooterLink>
-                <FooterLink href="/gifts">Gifts</FooterLink>
-                <FooterLink href="/cart">Cart</FooterLink>
+              <FooterColumn title={dict.footer.shop}>
+                <FooterLink href="/books">{dict.footer.books}</FooterLink>
+                <FooterLink href="/gifts">{dict.footer.gifts}</FooterLink>
+                <FooterLink href="/cart">{dict.footer.cart}</FooterLink>
               </FooterColumn>
 
-              <FooterColumn title="Account">
-                <FooterLink href="/login">Sign in</FooterLink>
-                <FooterLink href="/register">Create account</FooterLink>
+              <FooterColumn title={dict.footer.account}>
+                <FooterLink href="/login">{dict.footer.signIn}</FooterLink>
+                <FooterLink href="/register">
+                  {dict.footer.createAccount}
+                </FooterLink>
               </FooterColumn>
             </div>
           </div>
 
           <div className="mt-12 border-t pt-6">
-            {/* Keep the year and the name on one JSX text node. A text node
-                that wraps onto another line has its leading space trimmed,
-                which would render "© 2026Cornerstone". */}
             <p className="text-xs text-muted-foreground">
               © {new Date().getFullYear()}{" "}
-              <span>Cornerstone Christian Gifts &amp; Books</span>
+              <span>Hải Đăng — Christian Gifts &amp; Books</span>
             </p>
           </div>
         </div>

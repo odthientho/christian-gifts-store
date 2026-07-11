@@ -1,12 +1,26 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { Geist, Geist_Mono, Fraunces } from "next/font/google";
+import { Be_Vietnam_Pro, Playfair_Display, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { getLocale, getDictionary } from "@/lib/i18n";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+// Be Vietnam Pro for UI: a geometric sans in the Poppins family the reference
+// uses, but — unlike Poppins, whose latin-ext omits U+1EA0–U+1EF1 — it carries a
+// real `vietnamese` subset, so tone-marked vowels (ế, ộ, ữ) render in-font
+// rather than falling back. The store defaults to Vietnamese, so this matters.
+const bodyFont = Be_Vietnam_Pro({
+  variable: "--font-be-vietnam",
+  weight: ["400", "500", "600", "700"],
+  subsets: ["latin", "latin-ext", "vietnamese"],
+});
+
+// Playfair Display for headings: an elegant bookseller serif, and it also has a
+// vietnamese subset. Stands in for the reference's Libre Baskerville, which does
+// not cover Vietnamese.
+const headingFont = Playfair_Display({
+  variable: "--font-serif",
+  subsets: ["latin", "vietnamese"],
 });
 
 const geistMono = Geist_Mono({
@@ -14,22 +28,16 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Display serif for headings and the wordmark. A bookseller's type, and it
-// keeps the storefront from reading like a generic SaaS dashboard.
-const fraunces = Fraunces({
-  variable: "--font-serif",
-  subsets: ["latin"],
-  axes: ["SOFT", "WONK"],
-});
-
-export const metadata: Metadata = {
-  title: {
-    default: "Cornerstone — Christian Gifts & Books",
-    template: "%s · Cornerstone",
-  },
-  description:
-    "Thoughtfully chosen Christian books and handmade gifts for every season of faith.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const dict = await getDictionary();
+  return {
+    title: {
+      default: "Hải Đăng — Christian Gifts & Books",
+      template: "%s · Hải Đăng",
+    },
+    description: dict.brand.tagline,
+  };
+}
 
 // Runs before first paint, so a dark-theme visitor never sees a white flash.
 // It has to be inline and blocking; a deferred script paints too late.
@@ -49,12 +57,13 @@ export default async function RootLayout({
   // proxy.ts mints a nonce per request. An inline script without it is blocked
   // by `script-src 'self' 'nonce-…' 'strict-dynamic'`.
   const nonce = (await headers()).get("x-nonce") ?? undefined;
+  const locale = await getLocale();
 
   return (
     <html
-      lang="en"
+      lang={locale}
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
+      className={`${bodyFont.variable} ${headingFont.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
         {/* React strips the nonce attribute from the DOM after using it, so the

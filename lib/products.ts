@@ -4,12 +4,20 @@ import type { ProductType } from "@/lib/generated/prisma/enums";
 // Read helpers for Server Components. Everything goes through the `db`
 // singleton; no route builds its own Prisma client.
 
+// Enough for a product card: the category (with slug, so it can be translated)
+// plus the one detail field the card's meta line shows.
+const cardInclude = {
+  category: true,
+  bookDetail: { select: { author: true, isbn: true } },
+  giftDetail: { select: { occasion: true } },
+} as const;
+
 export async function getFeaturedProducts(limit = 6) {
   return db.product.findMany({
     where: { active: true, featured: true },
     orderBy: { createdAt: "desc" },
     take: limit,
-    include: { category: true },
+    include: cardInclude,
   });
 }
 
@@ -32,7 +40,7 @@ export async function getProductsByType(
         : {}),
     },
     orderBy: { title: "asc" },
-    include: { category: true },
+    include: cardInclude,
   });
 }
 
