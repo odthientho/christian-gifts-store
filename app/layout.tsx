@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { Be_Vietnam_Pro, Playfair_Display, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { getLocale, getDictionary } from "@/lib/i18n";
+import { BRAND_NAME, BRAND_SLOGAN } from "@/lib/brand";
 import "./globals.css";
 
 // Be Vietnam Pro for UI: a geometric sans in the Poppins family the reference
@@ -32,10 +33,10 @@ export async function generateMetadata(): Promise<Metadata> {
   const dict = await getDictionary();
   return {
     title: {
-      default: "Hải Đăng — Christian Gifts & Books",
-      template: "%s · Hải Đăng",
+      default: `${BRAND_NAME} — Christian Gifts & Books`,
+      template: `%s · ${BRAND_NAME}`,
     },
-    description: dict.brand.tagline,
+    description: `${BRAND_SLOGAN} ${dict.brand.tagline}`,
   };
 }
 

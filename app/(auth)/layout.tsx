@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { getDictionary } from "@/lib/i18n";
+import { BrandSlogan } from "@/components/brand-slogan";
 
 export default async function AuthLayout({
   children,
@@ -19,10 +20,11 @@ export default async function AuthLayout({
       <div className="relative w-full max-w-sm">
         <Link
           href="/"
-          className="mb-8 block text-center font-heading text-2xl font-semibold tracking-tight"
+          className="mb-2 block text-center font-heading text-2xl font-semibold tracking-tight"
         >
-          Hải Đăng<span className="text-primary">.</span>
+          GIN<span className="text-primary"> Store</span>
         </Link>
+        <BrandSlogan className="mb-8 text-center text-xs text-muted-foreground" />
         {children}
 
         <p className="mt-8 text-center text-xs text-muted-foreground">

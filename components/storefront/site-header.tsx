@@ -25,7 +25,7 @@ export async function SiteHeader() {
           href="/"
           className="font-heading text-xl font-semibold tracking-tight"
         >
-          Hải Đăng<span className="text-primary">.</span>
+          GIN<span className="text-primary"> Store</span>
         </Link>
 
         {/* Kept visible on phones: the only way to reach the catalog from the

@@ -1,4 +1,6 @@
-# Hải Đăng — Christian Gifts & Books
+# GIN Store — Christian Gifts & Books
+
+> Growing Faith. Inspiring Hope. Nurturing Love.
 
 A full e-commerce system for selling Christian books and gifts: a public
 storefront, a role-gated admin dashboard, and the backend that serves both.

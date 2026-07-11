@@ -4,6 +4,7 @@ import { ArrowRight, BookOpen, Gift, Truck } from "lucide-react";
 import { getFeaturedProducts } from "@/lib/products";
 import { getDictionary } from "@/lib/i18n";
 import { ProductCard } from "@/components/storefront/product-card";
+import { BrandSlogan } from "@/components/brand-slogan";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -22,10 +23,7 @@ export default async function HomePage() {
         />
 
         <div className="relative mx-auto max-w-3xl px-4 py-24 text-center sm:py-32">
-          <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/70 px-3.5 py-1.5 text-xs text-muted-foreground backdrop-blur">
-            <span className="size-1.5 rounded-full bg-primary" />
-            {dict.home.badge}
-          </p>
+          <BrandSlogan className="mb-5 inline-block rounded-full border border-border/80 bg-background/70 px-4 py-1.5 text-xs backdrop-blur" />
 
           <h1 className="font-heading text-4xl font-semibold leading-[1.08] tracking-tight text-balance sm:text-6xl">
             {dict.home.titleLead}{" "}

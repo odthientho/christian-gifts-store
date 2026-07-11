@@ -20,7 +20,7 @@ export default async function AdminLayout({
         <div className="flex h-16 items-center justify-between gap-4 px-4 lg:h-auto lg:flex-col lg:items-stretch lg:px-4 lg:pt-6">
           <Link href="/admin" className="flex items-baseline gap-2">
             <span className="font-heading text-lg font-semibold tracking-tight">
-              Cornerstone<span className="text-brass">.</span>
+              GIN<span className="text-primary"> Store</span>
             </span>
             <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-wider text-primary">
               Admin

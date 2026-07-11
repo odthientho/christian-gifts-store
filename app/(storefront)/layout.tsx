@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { getDictionary } from "@/lib/i18n";
 import { SiteHeader } from "@/components/storefront/site-header";
+import { BrandSlogan } from "@/components/brand-slogan";
 
 export default async function StorefrontLayout({
   children,
@@ -20,9 +21,10 @@ export default async function StorefrontLayout({
           <div className="flex flex-col gap-10 sm:flex-row sm:justify-between">
             <div className="max-w-xs">
               <p className="font-heading text-lg font-semibold tracking-tight">
-                Hải Đăng<span className="text-primary">.</span>
+                GIN<span className="text-primary"> Store</span>
               </p>
-              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              <BrandSlogan className="mt-3 text-sm font-medium" />
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                 {dict.brand.tagline}
               </p>
             </div>
@@ -46,7 +48,7 @@ export default async function StorefrontLayout({
           <div className="mt-12 border-t pt-6">
             <p className="text-xs text-muted-foreground">
               © {new Date().getFullYear()}{" "}
-              <span>Hải Đăng — Christian Gifts &amp; Books</span>
+              <span>GIN Store — Christian Gifts &amp; Books</span>
             </p>
           </div>
         </div>
