@@ -35,9 +35,11 @@ const en = {
     featured: "Featured",
     featuredSub: "A few things worth keeping.",
     featuredThisWeek: "This week's picks",
+    newProducts: "New arrivals",
     shopBooks: "Books",
     shopGifts: "Gifts & Homeware",
     viewAll: "View all",
+    viewCategory: "View all",
   },
   search: {
     title: "Search",
@@ -212,9 +214,11 @@ const vi: Dictionary = {
     featured: "Nổi bật",
     featuredSub: "Vài món đáng để lưu giữ.",
     featuredThisWeek: "Các sản phẩm hay tuần này",
+    newProducts: "Sản phẩm mới",
     shopBooks: "Sách",
     shopGifts: "Quà tặng & Gia dụng",
     viewAll: "Xem tất cả",
+    viewCategory: "Xem tất cả",
   },
   search: {
     title: "Tìm kiếm",

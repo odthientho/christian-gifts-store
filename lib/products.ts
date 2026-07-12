@@ -21,6 +21,46 @@ export async function getFeaturedProducts(limit = 6) {
   });
 }
 
+/** Newest active products, for the "New arrivals" grid. */
+export async function getNewProducts(limit = 10) {
+  return db.product.findMany({
+    where: { active: true },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    include: cardInclude,
+  });
+}
+
+/**
+ * One showcase per category that has active products: the category (with a
+ * `type` derived from its products so the storefront knows whether it lives
+ * under /books or /gifts) plus its first few products. Categories with no
+ * active products are dropped.
+ */
+export async function getCategoryShowcases(perCategory = 4) {
+  const categories = await db.category.findMany({
+    orderBy: { name: "asc" },
+    include: {
+      products: {
+        where: { active: true },
+        orderBy: { createdAt: "desc" },
+        take: perCategory,
+        include: cardInclude,
+      },
+    },
+  });
+
+  return categories
+    .filter((c) => c.products.length > 0)
+    .map((c) => ({
+      id: c.id,
+      slug: c.slug,
+      name: c.name,
+      type: c.products[0]!.type,
+      products: c.products,
+    }));
+}
+
 export async function getProductsByType(
   type: ProductType,
   opts: { categorySlug?: string; search?: string } = {},
