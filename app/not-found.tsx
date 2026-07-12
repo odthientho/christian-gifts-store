@@ -1,8 +1,11 @@
 import Link from "next/link";
 
+import { getDictionary } from "@/lib/i18n";
 import { buttonVariants } from "@/components/ui/button";
 
-export default function NotFound() {
+export default async function NotFound() {
+  const dict = await getDictionary();
+
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-28">
       <div className="text-center">
@@ -10,20 +13,18 @@ export default function NotFound() {
           404
         </p>
         <h1 className="mt-4 font-heading text-2xl font-semibold tracking-tight">
-          We couldn&apos;t find that page
+          {dict.notFound.title}
         </h1>
-        <p className="mt-2 text-muted-foreground">
-          The link may be old, or the item may no longer be for sale.
-        </p>
+        <p className="mt-2 text-muted-foreground">{dict.notFound.sub}</p>
         <div className="mt-8 flex justify-center gap-3">
           <Link href="/" className={buttonVariants()}>
-            Back to the store
+            {dict.notFound.home}
           </Link>
           <Link
             href="/books"
             className={buttonVariants({ variant: "outline" })}
           >
-            Browse books
+            {dict.notFound.books}
           </Link>
         </div>
       </div>

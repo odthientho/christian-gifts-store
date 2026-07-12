@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 
 import { getCategories, getProductsByType } from "@/lib/products";
+import { getDictionary } from "@/lib/i18n";
 import { CatalogGrid } from "@/components/storefront/catalog-grid";
 
-export const metadata: Metadata = { title: "Gifts" };
+export async function generateMetadata(): Promise<Metadata> {
+  const dict = await getDictionary();
+  return { title: dict.catalog.giftsTitle };
+}
 
 export default async function GiftsPage({
   searchParams,
@@ -12,19 +16,21 @@ export default async function GiftsPage({
 }) {
   const { category } = await searchParams;
 
-  const [products, categories] = await Promise.all([
+  const [products, categories, dict] = await Promise.all([
     getProductsByType("GIFT", { categorySlug: category }),
     getCategories("GIFT"),
+    getDictionary(),
   ]);
 
   return (
     <CatalogGrid
-      title="Gifts"
-      description="Handmade crosses, rosaries, jewelry, and pieces for the home."
+      title={dict.catalog.giftsTitle}
+      description={dict.catalog.giftsDesc}
       basePath="/gifts"
       products={products}
       categories={categories}
       activeCategory={category}
+      dict={dict}
     />
   );
 }

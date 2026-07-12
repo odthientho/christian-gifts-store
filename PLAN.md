@@ -1,4 +1,4 @@
-# Build Plan — Cornerstone Christian Gifts & Books
+# Build Plan — GIN Store Christian Gifts & Books
 
 A custom e-commerce system in three parts: a public storefront, a role-gated
 admin dashboard, and the backend API and services behind both.

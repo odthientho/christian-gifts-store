@@ -1,19 +1,17 @@
 import Link from "next/link";
 
-import { ProductCard } from "@/components/storefront/product-card";
+import { ProductCard, type CardProduct } from "@/components/storefront/product-card";
+import { translateCategory, type Dictionary } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-
-type Product = React.ComponentProps<typeof ProductCard>["product"] & {
-  id: string;
-};
 
 type CatalogGridProps = {
   title: string;
   description: string;
   basePath: string;
-  products: Product[];
+  products: CardProduct[];
   categories: { slug: string; name: string }[];
   activeCategory?: string;
+  dict: Dictionary;
 };
 
 export function CatalogGrid({
@@ -23,14 +21,17 @@ export function CatalogGrid({
   products,
   categories,
   activeCategory,
+  dict,
 }: CatalogGridProps) {
+  const noun = products.length === 1 ? dict.catalog.item : dict.catalog.items;
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
       <header className="max-w-2xl">
         <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
           {title}
         </h1>
-        <p className="mt-3 text-pretty leading-relaxed text-muted-foreground">
+        <p className="mt-3 leading-relaxed text-pretty text-muted-foreground">
           {description}
         </p>
       </header>
@@ -42,7 +43,7 @@ export function CatalogGrid({
           aria-label="Filter by category"
         >
           <FilterPill href={basePath} active={!activeCategory}>
-            All
+            {dict.catalog.all}
           </FilterPill>
           {categories.map((c) => (
             <FilterPill
@@ -50,30 +51,30 @@ export function CatalogGrid({
               href={`${basePath}?category=${c.slug}`}
               active={activeCategory === c.slug}
             >
-              {c.name}
+              {translateCategory(dict, c.slug, c.name)}
             </FilterPill>
           ))}
         </div>
       )}
 
       <p className="mt-6 text-sm text-muted-foreground">
-        {products.length} {products.length === 1 ? "item" : "items"}
+        {products.length} {noun}
       </p>
 
       {products.length === 0 ? (
         <div className="mt-8 rounded-xl border border-dashed py-20 text-center">
-          <p className="text-muted-foreground">Nothing here yet.</p>
+          <p className="text-muted-foreground">{dict.catalog.nothing}</p>
           <Link
             href={basePath}
             className="mt-2 inline-block text-sm underline underline-offset-4"
           >
-            Clear the filter
+            {dict.catalog.clearFilter}
           </Link>
         </div>
       ) : (
-        <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {products.map((p) => (
-            <ProductCard key={p.id} product={p} />
+            <ProductCard key={p.id} product={p} dict={dict} />
           ))}
         </div>
       )}
@@ -98,7 +99,7 @@ function FilterPill({
         "rounded-full border px-3.5 py-1.5 text-sm transition-colors",
         active
           ? "border-primary bg-primary text-primary-foreground"
-          : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground",
+          : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground",
       )}
     >
       {children}

@@ -5,6 +5,12 @@ import { BookOpen, Gift, Truck, ChevronRight } from "lucide-react";
 
 import { getProductBySlug } from "@/lib/products";
 import { formatCents } from "@/lib/money";
+import {
+  getDictionary,
+  interpolate,
+  translateCategory,
+  type Dictionary,
+} from "@/lib/i18n";
 import { AddToCartButton } from "@/components/storefront/add-to-cart-button";
 import { Separator } from "@/components/ui/separator";
 
@@ -22,7 +28,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProductPage({ params }: Props) {
   const { slug } = await params;
-  const product = await getProductBySlug(slug);
+  const [product, dict] = await Promise.all([
+    getProductBySlug(slug),
+    getDictionary(),
+  ]);
 
   if (!product) notFound();
 
@@ -30,26 +39,24 @@ export default async function ProductPage({ params }: Props) {
   const isBook = product.type === "BOOK";
   const Icon = isBook ? BookOpen : Gift;
   const backHref = isBook ? "/books" : "/gifts";
+  const backLabel = isBook ? dict.catalog.booksTitle : dict.catalog.giftsTitle;
 
   const specs: [string, string][] = [];
   if (product.bookDetail) {
     const b = product.bookDetail;
-    specs.push(["Author", b.author]);
-    if (b.publisher) specs.push(["Publisher", b.publisher]);
-    if (b.pageCount) specs.push(["Pages", String(b.pageCount)]);
-    // Title-case the enum here rather than with a `capitalize` class on the
-    // value cell — that class would also rewrite author-supplied text like
-    // `1.5" x 1" pendant` into `1.5" X 1" Pendant`.
-    specs.push(["Format", titleCase(b.format)]);
-    specs.push(["Language", b.language]);
-    if (b.isbn) specs.push(["ISBN", b.isbn]);
+    specs.push([dict.specs.author, b.author]);
+    if (b.publisher) specs.push([dict.specs.publisher, b.publisher]);
+    if (b.pageCount) specs.push([dict.specs.pages, String(b.pageCount)]);
+    specs.push([dict.specs.format, titleCase(b.format)]);
+    specs.push([dict.specs.language, b.language]);
+    if (b.isbn) specs.push([dict.specs.isbn, b.isbn]);
   }
   if (product.giftDetail) {
     const g = product.giftDetail;
-    if (g.material) specs.push(["Material", g.material]);
-    if (g.dimensions) specs.push(["Dimensions", g.dimensions]);
-    if (g.occasion) specs.push(["Occasion", g.occasion]);
-    if (g.handmade) specs.push(["Handmade", "Yes"]);
+    if (g.material) specs.push([dict.specs.material, g.material]);
+    if (g.dimensions) specs.push([dict.specs.dimensions, g.dimensions]);
+    if (g.occasion) specs.push([dict.specs.occasion, g.occasion]);
+    if (g.handmade) specs.push([dict.specs.handmade, dict.specs.yes]);
   }
 
   return (
@@ -59,11 +66,11 @@ export default async function ProductPage({ params }: Props) {
         className="mb-8 flex items-center gap-1.5 text-sm text-muted-foreground"
       >
         <Link href="/" className="hover:text-foreground">
-          Home
+          {dict.product.home}
         </Link>
         <ChevronRight className="size-3.5" />
         <Link href={backHref} className="hover:text-foreground">
-          {isBook ? "Books" : "Gifts"}
+          {backLabel}
         </Link>
         <ChevronRight className="size-3.5" />
         <span className="truncate text-foreground">{product.title}</span>
@@ -93,12 +100,16 @@ export default async function ProductPage({ params }: Props) {
 
         <div className="flex flex-col">
           {product.category && (
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              {product.category.name}
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-primary/80">
+              {translateCategory(
+                dict,
+                product.category.slug,
+                product.category.name,
+              )}
             </p>
           )}
 
-          <h1 className="mt-3 font-heading text-3xl leading-tight font-semibold tracking-tight text-balance sm:text-4xl">
+          <h1 className="mt-3 font-heading text-3xl font-semibold leading-tight tracking-tight text-balance sm:text-4xl">
             {product.title}
           </h1>
 
@@ -106,26 +117,38 @@ export default async function ProductPage({ params }: Props) {
             <span className="text-3xl font-semibold tabular-nums">
               {formatCents(product.priceCents)}
             </span>
-            <StockPill stock={product.stock} />
+            <StockPill stock={product.stock} dict={dict} />
           </div>
 
-          <p className="mt-6 text-pretty leading-relaxed text-muted-foreground">
+          <p className="mt-6 leading-relaxed text-pretty text-muted-foreground">
             {product.description}
           </p>
 
           <div className="mt-8">
-            <AddToCartButton productId={product.id} disabled={soldOut} />
+            <AddToCartButton
+              productId={product.id}
+              disabled={soldOut}
+              labels={{
+                add: dict.product.addToCart,
+                adding: dict.product.adding,
+                soldOut: dict.product.soldOut,
+                quantity: dict.product.quantity,
+                added: dict.product.addToCart,
+              }}
+            />
           </div>
 
           <p className="mt-5 inline-flex items-center gap-2 text-sm text-muted-foreground">
             <Truck className="size-4" strokeWidth={1.75} />
-            Free shipping on orders over $50
+            {dict.product.freeShipping}
           </p>
 
           {specs.length > 0 && (
             <>
               <Separator className="my-9" />
-              <h2 className="font-heading text-lg font-semibold">Details</h2>
+              <h2 className="font-heading text-lg font-semibold">
+                {dict.product.details}
+              </h2>
               <dl className="mt-4 divide-y rounded-xl border bg-card">
                 {specs.map(([label, value]) => (
                   <div
@@ -150,25 +173,25 @@ function titleCase(value: string): string {
   return value.charAt(0) + value.slice(1).toLowerCase();
 }
 
-function StockPill({ stock }: { stock: number }) {
+function StockPill({ stock, dict }: { stock: number; dict: Dictionary }) {
   if (stock <= 0) {
     return (
       <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-        Out of stock
+        {dict.product.outOfStock}
       </span>
     );
   }
   if (stock <= 5) {
     return (
       <span className="rounded-full bg-brass/25 px-2.5 py-1 text-xs font-medium text-brass-foreground">
-        Only {stock} left
+        {interpolate(dict.product.onlyLeft, { n: stock })}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
       <span className="size-1.5 rounded-full bg-emerald-500" />
-      In stock
+      {dict.product.inStock}
     </span>
   );
 }
