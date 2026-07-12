@@ -1,14 +1,22 @@
 import Link from "next/link";
 import { ArrowRight, BookOpen, Gift } from "lucide-react";
 
-import { getFeaturedProducts } from "@/lib/products";
+import {
+  getFeaturedProducts,
+  getNewProducts,
+  getCategoryShowcases,
+} from "@/lib/products";
 import { getDictionary, getLocale } from "@/lib/i18n";
 import { ProductCard } from "@/components/storefront/product-card";
 import { HeroCarousel } from "@/components/storefront/hero-carousel";
+import { SectionHeading } from "@/components/storefront/section-heading";
+import { CategoryShowcase } from "@/components/storefront/category-showcase";
 
 export default async function HomePage() {
-  const [featured, dict, locale] = await Promise.all([
-    getFeaturedProducts(10),
+  const [featured, newArrivals, showcases, dict, locale] = await Promise.all([
+    getFeaturedProducts(5),
+    getNewProducts(10),
+    getCategoryShowcases(4),
     getDictionary(),
     getLocale(),
   ]);
@@ -38,33 +46,45 @@ export default async function HomePage() {
       </section>
 
       {/* This week's picks */}
-      <section className="mt-12 sm:mt-16">
-        <div className="mb-6 flex items-end justify-between gap-4 border-b-2 border-primary/20 pb-3">
-          <h2 className="relative font-heading text-xl font-bold uppercase tracking-wide sm:text-2xl">
-            {dict.home.featuredThisWeek}
-            <span className="absolute -bottom-[calc(0.75rem+2px)] left-0 h-0.5 w-24 bg-primary" />
-          </h2>
-          <Link
+      {featured.length > 0 && (
+        <section className="mt-12 sm:mt-16">
+          <SectionHeading
+            title={dict.home.featuredThisWeek}
             href="/books"
-            className="group inline-flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary"
-          >
-            {dict.home.viewAll}
-            <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-          </Link>
-        </div>
+            viewAllLabel={dict.home.viewAll}
+          />
+          <ProductRow products={featured} dict={dict} />
+        </section>
+      )}
 
-        {featured.length === 0 ? (
-          <p className="text-muted-foreground">
-            No featured products yet. Run <code>npm run db:seed</code>.
-          </p>
-        ) : (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            {featured.map((p) => (
-              <ProductCard key={p.id} product={p} dict={dict} />
-            ))}
-          </div>
-        )}
-      </section>
+      {/* New arrivals */}
+      {newArrivals.length > 0 && (
+        <section className="mt-12 sm:mt-16">
+          <SectionHeading title={dict.home.newProducts} viewAllLabel={dict.home.viewAll} />
+          <ProductRow products={newArrivals} dict={dict} />
+        </section>
+      )}
+
+      {/* One showcase per category: banner + product row */}
+      {showcases.map((s, i) => (
+        <CategoryShowcase key={s.id} showcase={s} index={i} dict={dict} />
+      ))}
+    </div>
+  );
+}
+
+function ProductRow({
+  products,
+  dict,
+}: {
+  products: React.ComponentProps<typeof ProductCard>["product"][];
+  dict: React.ComponentProps<typeof ProductCard>["dict"];
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      {products.map((p) => (
+        <ProductCard key={p.id} product={p} dict={dict} />
+      ))}
     </div>
   );
 }
