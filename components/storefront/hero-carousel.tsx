@@ -37,7 +37,15 @@ const SLIDES = [
   },
 ];
 
-export function HeroCarousel({ locale }: { locale: Locale }) {
+export function HeroCarousel({
+  locale,
+  images = [],
+}: {
+  locale: Locale;
+  // Optional photos from /public/img/hero, resolved server-side. When present,
+  // each slide uses one (cycled) with a dark overlay; otherwise the gradients.
+  images?: string[];
+}) {
   const [index, setIndex] = useState(0);
 
   const go = useCallback(
@@ -55,19 +63,28 @@ export function HeroCarousel({ locale }: { locale: Locale }) {
 
   return (
     <div className="relative aspect-[16/10] overflow-hidden rounded-xl sm:aspect-[16/9]">
-      {SLIDES.map((slide, i) => (
+      {SLIDES.map((slide, i) => {
+        const photo = images.length ? images[i % images.length] : null;
+        return (
         <div
           key={i}
           aria-hidden={i !== index}
           className={cn(
-            "absolute inset-0 flex flex-col items-center justify-center px-6 text-center transition-opacity duration-700 sm:px-14",
+            "absolute inset-0 flex flex-col items-center justify-center bg-cover bg-center px-6 text-center transition-opacity duration-700 sm:px-14",
             i === index ? "opacity-100" : "pointer-events-none opacity-0",
           )}
-          style={{ backgroundImage: slide.gradient }}
+          style={{
+            backgroundImage: photo ? `url(${photo})` : slide.gradient,
+          }}
         >
           <div
             aria-hidden
-            className="absolute inset-0 bg-[radial-gradient(120%_120%_at_50%_0%,transparent,rgba(0,0,0,0.35))]"
+            className={cn(
+              "absolute inset-0",
+              photo
+                ? "bg-gradient-to-t from-black/70 via-black/45 to-black/40"
+                : "bg-[radial-gradient(120%_120%_at_50%_0%,transparent,rgba(0,0,0,0.35))]",
+            )}
           />
           <blockquote className="relative max-w-2xl font-heading text-lg font-medium leading-snug text-balance text-white drop-shadow sm:text-2xl md:text-[1.75rem]">
             “{slide.text[locale]}”
@@ -76,7 +93,8 @@ export function HeroCarousel({ locale }: { locale: Locale }) {
             {slide.ref[locale]}
           </cite>
         </div>
-      ))}
+        );
+      })}
 
       <div className="absolute inset-x-0 bottom-4 flex justify-center gap-2">
         {SLIDES.map((_, i) => (

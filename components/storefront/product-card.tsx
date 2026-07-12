@@ -3,6 +3,7 @@ import { BookOpen, Gift, Star } from "lucide-react";
 
 import { formatCents } from "@/lib/money";
 import { interpolate, type Dictionary } from "@/lib/i18n";
+import { productImage } from "@/lib/site-images";
 
 export type CardProduct = {
   id: string;
@@ -28,6 +29,10 @@ export function ProductCard({
   const scarce = !soldOut && product.stock <= 5;
   const Icon = product.type === "BOOK" ? BookOpen : Gift;
 
+  // A photo dropped into /public/img/products/<slug>.jpg wins; otherwise the
+  // stored imageUrl, otherwise the gradient placeholder.
+  const image = productImage(product.slug) ?? product.imageUrl;
+
   const meta =
     product.bookDetail?.author ?? product.giftDetail?.occasion ?? null;
 
@@ -38,10 +43,10 @@ export function ProductCard({
     >
       <article className="flex h-full flex-col overflow-hidden rounded-xl border bg-card transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/30 group-hover:shadow-lg group-hover:shadow-primary/5">
         <div className="relative aspect-square overflow-hidden bg-ice">
-          {product.imageUrl ? (
+          {image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={product.imageUrl}
+              src={image}
               alt=""
               className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
             />
