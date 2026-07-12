@@ -13,6 +13,7 @@ import {
 } from "@/lib/i18n";
 import { AddToCartButton } from "@/components/storefront/add-to-cart-button";
 import { Separator } from "@/components/ui/separator";
+import { productImage } from "@/lib/site-images";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -38,6 +39,7 @@ export default async function ProductPage({ params }: Props) {
   const soldOut = product.stock <= 0;
   const isBook = product.type === "BOOK";
   const Icon = isBook ? BookOpen : Gift;
+  const image = productImage(product.slug) ?? product.imageUrl;
   const backHref = isBook ? "/books" : "/gifts";
   const backLabel = isBook ? dict.catalog.booksTitle : dict.catalog.giftsTitle;
 
@@ -79,10 +81,10 @@ export default async function ProductPage({ params }: Props) {
       <div className="grid gap-10 lg:grid-cols-2 lg:gap-16">
         <div className="lg:sticky lg:top-24 lg:self-start">
           <div className="aspect-square overflow-hidden rounded-2xl border bg-card">
-            {product.imageUrl ? (
+            {image ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={product.imageUrl}
+                src={image}
                 alt={product.title}
                 className="size-full object-cover"
               />

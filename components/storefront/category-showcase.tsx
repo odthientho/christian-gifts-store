@@ -4,6 +4,7 @@ import { ArrowRight, BookOpen, Gift } from "lucide-react";
 import { ProductCard, type CardProduct } from "@/components/storefront/product-card";
 import { SectionHeading } from "@/components/storefront/section-heading";
 import { translateCategory, type Dictionary } from "@/lib/i18n";
+import { bannerImage } from "@/lib/site-images";
 
 export type Showcase = {
   id: string;
@@ -41,6 +42,13 @@ export function CategoryShowcase({
   const label = translateCategory(dict, showcase.slug, showcase.name);
   const Icon = showcase.type === "BOOK" ? BookOpen : Gift;
 
+  // A photo in /public/img/banners/<slug>.jpg sits under a dark tint; otherwise
+  // the cycling gradient placeholder.
+  const photo = bannerImage(showcase.slug);
+  const bannerBg = photo
+    ? `linear-gradient(150deg, oklch(0.28 0.05 265 / 0.72), oklch(0.35 0.06 250 / 0.55)), url(${photo})`
+    : BANNER_GRADIENTS[index % BANNER_GRADIENTS.length];
+
   return (
     <section className="mt-12 sm:mt-16">
       <SectionHeading title={label} href={href} viewAllLabel={dict.home.viewCategory} />
@@ -48,10 +56,8 @@ export function CategoryShowcase({
       <div className="grid gap-4 lg:grid-cols-[minmax(0,15rem)_1fr]">
         <Link
           href={href}
-          className="group relative hidden min-h-56 flex-col justify-between overflow-hidden rounded-xl p-5 text-white lg:flex"
-          style={{
-            backgroundImage: BANNER_GRADIENTS[index % BANNER_GRADIENTS.length],
-          }}
+          className="group relative hidden min-h-56 flex-col justify-between overflow-hidden rounded-xl bg-cover bg-center p-5 text-white lg:flex"
+          style={{ backgroundImage: bannerBg }}
         >
           <div
             aria-hidden

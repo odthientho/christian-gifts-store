@@ -7,6 +7,7 @@ import {
   getCategoryShowcases,
 } from "@/lib/products";
 import { getDictionary, getLocale } from "@/lib/i18n";
+import { heroImages, promoImage } from "@/lib/site-images";
 import { ProductCard } from "@/components/storefront/product-card";
 import { HeroCarousel } from "@/components/storefront/hero-carousel";
 import { SectionHeading } from "@/components/storefront/section-heading";
@@ -21,12 +22,17 @@ export default async function HomePage() {
     getLocale(),
   ]);
 
+  // Optional photos, resolved from /public/img at render. Absent → gradients.
+  const hero = heroImages();
+  const giftsPromo = promoImage("gifts");
+  const booksPromo = promoImage("books");
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
       {/* Hero: 2/3 Scripture carousel + 1/3 stacked promo tiles */}
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <HeroCarousel locale={locale} />
+          <HeroCarousel locale={locale} images={hero} />
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
@@ -34,12 +40,14 @@ export default async function HomePage() {
             href="/gifts"
             label={dict.home.shopGifts}
             icon={<Gift className="size-6" strokeWidth={1.5} />}
+            image={giftsPromo}
             gradient="linear-gradient(140deg, oklch(0.62 0.19 28), oklch(0.7 0.15 45))"
           />
           <PromoTile
             href="/books"
             label={dict.home.shopBooks}
             icon={<BookOpen className="size-6" strokeWidth={1.5} />}
+            image={booksPromo}
             gradient="linear-gradient(140deg, oklch(0.4 0.09 250), oklch(0.5 0.1 210))"
           />
         </div>
@@ -94,17 +102,24 @@ function PromoTile({
   label,
   icon,
   gradient,
+  image,
 }: {
   href: string;
   label: string;
   icon: React.ReactNode;
   gradient: string;
+  // A photo in /public/img/promo/<name>.jpg. When present it sits under a tinted
+  // version of the gradient so the label stays legible; otherwise plain gradient.
+  image?: string | null;
 }) {
+  const tinted = gradient.replace(/oklch\(([^)]+)\)/g, "oklch($1 / 0.82)");
   return (
     <Link
       href={href}
-      className="group relative flex min-h-32 flex-col justify-between overflow-hidden rounded-xl p-5 text-white lg:min-h-[8.75rem]"
-      style={{ backgroundImage: gradient }}
+      className="group relative flex min-h-32 flex-col justify-between overflow-hidden rounded-xl bg-cover bg-center p-5 text-white lg:min-h-[8.75rem]"
+      style={{
+        backgroundImage: image ? `${tinted}, url(${image})` : gradient,
+      }}
     >
       <div
         aria-hidden
