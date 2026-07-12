@@ -44,6 +44,25 @@ export async function getProductsByType(
   });
 }
 
+/** Full-text-ish search across active products of both types. */
+export async function searchProducts(query: string) {
+  const q = query.trim();
+  if (!q) return [];
+  return db.product.findMany({
+    where: {
+      active: true,
+      OR: [
+        { title: { contains: q, mode: "insensitive" } },
+        { description: { contains: q, mode: "insensitive" } },
+        { bookDetail: { author: { contains: q, mode: "insensitive" } } },
+      ],
+    },
+    orderBy: { title: "asc" },
+    take: 60,
+    include: cardInclude,
+  });
+}
+
 export async function getProductBySlug(slug: string) {
   return db.product.findFirst({
     where: { slug, active: true },

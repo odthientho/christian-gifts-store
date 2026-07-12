@@ -1,12 +1,8 @@
 import Link from "next/link";
-import { BookOpen, Gift } from "lucide-react";
+import { BookOpen, Gift, Star } from "lucide-react";
 
 import { formatCents } from "@/lib/money";
-import {
-  interpolate,
-  translateCategory,
-  type Dictionary,
-} from "@/lib/i18n";
+import { interpolate, type Dictionary } from "@/lib/i18n";
 
 export type CardProduct = {
   id: string;
@@ -32,11 +28,8 @@ export function ProductCard({
   const scarce = !soldOut && product.stock <= 5;
   const Icon = product.type === "BOOK" ? BookOpen : Gift;
 
-  // Reference cards carry a small meta line: the author for a book, the
-  // occasion for a gift. Real data only — no fabricated SKUs.
   const meta =
     product.bookDetail?.author ?? product.giftDetail?.occasion ?? null;
-  const code = product.bookDetail?.isbn ?? null;
 
   return (
     <Link
@@ -44,7 +37,7 @@ export function ProductCard({
       className="group block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       <article className="flex h-full flex-col overflow-hidden rounded-xl border bg-card transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/30 group-hover:shadow-lg group-hover:shadow-primary/5">
-        <div className="relative aspect-square overflow-hidden">
+        <div className="relative aspect-square overflow-hidden bg-ice">
           {product.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -55,39 +48,38 @@ export function ProductCard({
           ) : (
             <div className="product-placeholder flex size-full items-center justify-center">
               <Icon
-                className="size-11 text-primary/40 transition-transform duration-300 group-hover:scale-110"
+                className="size-10 text-primary/40 transition-transform duration-300 group-hover:scale-110"
                 strokeWidth={1.25}
               />
             </div>
           )}
 
           {soldOut && (
-            <div className="absolute inset-0 grid place-items-center bg-background/70 backdrop-blur-[1px]">
-              <span className="rounded-full bg-foreground px-3 py-1 text-xs font-medium uppercase tracking-wide text-background">
-                {dict.product.soldOut}
-              </span>
+            <div className="absolute inset-x-0 bottom-0 bg-foreground/85 py-1.5 text-center text-[0.7rem] font-medium uppercase tracking-wide text-background">
+              {dict.product.outOfStock}
             </div>
           )}
 
           {scarce && (
-            <span className="absolute left-3 top-3 rounded-full bg-brass px-2.5 py-1 text-[0.7rem] font-medium text-brass-foreground shadow-sm">
+            <span className="absolute left-2 top-2 rounded-full bg-brass px-2 py-0.5 text-[0.65rem] font-medium text-brass-foreground shadow-sm">
               {interpolate(dict.product.onlyLeft, { n: product.stock })}
             </span>
           )}
         </div>
 
-        <div className="flex flex-1 flex-col gap-1 p-4">
-          {product.category && (
-            <p className="text-[0.68rem] font-medium uppercase tracking-[0.1em] text-primary/80">
-              {translateCategory(
-                dict,
-                product.category.slug,
-                product.category.name,
-              )}
-            </p>
-          )}
+        <div className="flex flex-1 flex-col gap-1 p-3">
+          {/* Decorative rating row: empty outlines read as "not yet rated". */}
+          <div className="flex gap-0.5" aria-hidden>
+            {Array.from({ length: 5 }, (_, i) => (
+              <Star
+                key={i}
+                className="size-3 text-muted-foreground/35"
+                strokeWidth={1.5}
+              />
+            ))}
+          </div>
 
-          <h3 className="font-heading text-[0.98rem] font-medium leading-snug text-balance decoration-primary/30 underline-offset-4 group-hover:underline">
+          <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-snug text-foreground/90 group-hover:text-primary">
             {product.title}
           </h3>
 
@@ -95,16 +87,9 @@ export function ProductCard({
             <p className="truncate text-xs text-muted-foreground">{meta}</p>
           )}
 
-          <div className="mt-auto flex items-baseline justify-between pt-3">
-            <span className="font-semibold tabular-nums">
-              {formatCents(product.priceCents)}
-            </span>
-            {code && (
-              <span className="font-mono text-[0.65rem] text-muted-foreground/70">
-                {code}
-              </span>
-            )}
-          </div>
+          <p className="mt-auto pt-2 font-semibold text-primary tabular-nums">
+            {formatCents(product.priceCents)}
+          </p>
         </div>
       </article>
     </Link>
