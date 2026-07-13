@@ -59,18 +59,6 @@ export async function SiteHeader() {
               <ThemeToggle />
             </div>
 
-            {user?.role === "ADMIN" && (
-              <Link
-                href="/admin"
-                className={cn(
-                  buttonVariants({ variant: "ghost", size: "sm" }),
-                  "hidden lg:inline-flex",
-                )}
-              >
-                {dict.nav.admin}
-              </Link>
-            )}
-
             {user ? (
               <div className="hidden sm:block">
                 <SignOutButton label={dict.nav.signOut} />
