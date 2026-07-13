@@ -21,7 +21,7 @@ import {
 
 import { ProductsService } from "./products.service.js";
 import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
-import { AdminGuard } from "../common/admin.guard.js";
+import { JwtAuthGuard, RolesGuard, Roles } from "../auth/guards.js";
 
 @Controller()
 export class ProductsController {
@@ -48,8 +48,23 @@ export class ProductsController {
 
   // --- Admin (guarded) ------------------------------------------------------
 
+  @Get("admin/products")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("ADMIN")
+  listAll() {
+    return this.products.listAll();
+  }
+
+  @Get("admin/products/:slug")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("ADMIN")
+  getForAdmin(@Param("slug") slug: string) {
+    return this.products.getAnyBySlug(slug);
+  }
+
   @Post("admin/products")
-  @UseGuards(AdminGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("ADMIN")
   create(
     @Body(new ZodValidationPipe(createProductSchema)) body: CreateProductInput,
   ) {
@@ -57,7 +72,8 @@ export class ProductsController {
   }
 
   @Patch("admin/products/:slug")
-  @UseGuards(AdminGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("ADMIN")
   update(
     @Param("slug") slug: string,
     @Body(new ZodValidationPipe(updateProductSchema)) body: UpdateProductInput,
@@ -66,7 +82,8 @@ export class ProductsController {
   }
 
   @Delete("admin/products/:slug")
-  @UseGuards(AdminGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("ADMIN")
   @HttpCode(204)
   async remove(@Param("slug") slug: string) {
     await this.products.remove(slug);

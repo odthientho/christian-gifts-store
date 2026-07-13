@@ -1,64 +1,62 @@
-# GIN Store — monorepo
+# GIN Store — headless Christian gifts & books commerce
 
-Headless Christian gifts & books commerce, split into independently deployable
-services so more can be added later. **Growing Faith. Inspiring Hope. Nurturing Love.**
+**Growing Faith. Inspiring Hope. Nurturing Love.**
 
-## Structure
+A monorepo split into three independently deployable services plus shared
+packages, so new services can be added without disturbing the others.
 
 ```
-packages/
-  db/          @gin/db        Prisma schema, migrations, seed. Owns the database.
-                              Exposes the client to the API; the storefront
-                              generates its own client from the same schema.
-  contracts/   @gin/contracts Shared Zod schemas + DTO types + money helpers.
-                              One wire contract for every service.
 apps/
-  api/         @gin/api       NestJS. All business logic and HTTP endpoints.
-                              The only service that talks to the database for
-                              product reads/writes.
-  storefront/  @gin/storefront Next.js customer store. Reads products from the API.
-  admin/       @gin/admin     Next.js admin dashboard (in progress).
+  api/         NestJS — all business logic + the only thing that touches the DB
+  storefront/  Next.js 16 — the bilingual (vi/en) customer store, consumes the API
+  admin/       Next.js 16 — the role-gated admin dashboard, consumes the API
+packages/
+  db/          Prisma schema, migrations, seed, generated client (@gin/db)
+  contracts/   Shared Zod schemas, DTO types, money + shipping helpers (@gin/contracts)
 ```
 
-Why a monorepo of separate apps rather than one app: each service builds and
-deploys on its own, but they share one schema and one set of types, so a
-change to the contract is a single edit — not a coordinated release across
-three repositories.
-
-## Migration status (Products vertical slice)
-
-The **Products** domain is fully headless: the storefront reads it over HTTP
-from the API. The remaining domains — cart, checkout, orders, auth — still read
-Postgres directly from the storefront during the migration, and move to the API
-one slice at a time.
-
-| Domain    | Storefront reads from       | Status |
-|-----------|-----------------------------|--------|
-| Products  | GIN API (`/api/products`)   | ✅ migrated |
-| Cart      | Postgres (direct)           | pending |
-| Checkout  | Postgres + Stripe (direct)  | pending |
-| Orders    | Postgres (direct)           | pending |
-| Auth      | Auth.js + Postgres (direct) | pending |
+The two UIs never touch the database — every read and write goes over HTTP to
+the API, which owns products, categories, cart, checkout, orders, the Stripe
+webhook, and auth. Shared types live in `@gin/contracts`, so the wire format is
+defined once and consumed by all three apps.
 
 ## Running it
 
+Prerequisites: Node 20.9+, Docker (Postgres). From the repo root:
+
 ```bash
 npm install
-npm run db:up          # Postgres in Docker (port 5433)
-npm run db:migrate     # apply migrations
-npm run db:seed        # seed products + admin user
+npm run db:up            # start Postgres (docker compose)
+npm run db:migrate       # apply migrations   (packages/db)
+npm run db:seed          # seed demo catalog + admin user
 
-# each service in its own terminal
-npm run dev -w @gin/api          # http://localhost:4000/api
-npm run dev -w @gin/storefront   # http://localhost:3000
+# each service (separate terminals, or `npm run dev` for all via turbo)
+npm run dev -w @gin/api          # API        → http://localhost:4000/api
+npm run dev -w @gin/storefront   # storefront  → http://localhost:3000
+npm run dev -w @gin/admin        # admin       → http://localhost:3001
 ```
 
-The API's admin endpoints are guarded by a bearer token (`ADMIN_API_TOKEN`) for
-now; the full JWT auth slice replaces that with real login + role claims. Rate
-limiting, security headers (helmet), CORS, and Zod validation are enforced at
-the API boundary.
+Each app has its own `.env` (copy from the `.env.example` beside it). The API
+needs `DATABASE_URL`, `JWT_SECRET`, and — for checkout — `STRIPE_SECRET_KEY` /
+`STRIPE_WEBHOOK_SECRET`. Without Stripe keys the store runs fine; checkout
+returns a clear "not configured" message.
 
-## Tech
+## Security (enforced at the API boundary)
 
-Next.js 16 · NestJS 11 · Prisma 7 (Postgres) · Zod · Stripe · Turborepo · TypeScript.
-Storefront is bilingual (vi/en) with a coral/ice-blue theme.
+- **Auth** is JWT: the API signs a role-carrying token; the UIs hold it in an
+  httpOnly cookie and never inspect it. `RolesGuard` gates every admin endpoint.
+- **Prices are never trusted from the client.** Cart and checkout recompute
+  every total from database prices; the client sends only ids and quantities.
+- **Order lookup is IDOR-safe:** an order is returned only to the holder of the
+  cart token it was created from — otherwise null, indistinguishable from
+  "not found".
+- **The Stripe webhook** verifies the signature against the raw body and is
+  idempotent; stock is decremented conditionally so racing buyers can't oversell
+  (the loser's order is flagged for review).
+- Money is integer cents everywhere.
+
+## Storefront design
+
+Bilingual Tiếng Việt / English (defaults to Vietnamese) with a header toggle;
+coral-and-ice-blue palette and Be Vietnam Pro + Playfair Display type, adapted
+from the reference store at codochaidang.com. Prices are USD.

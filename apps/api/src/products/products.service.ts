@@ -43,6 +43,25 @@ export class ProductsService {
     return rows.map(toProductDTO);
   }
 
+  /** Admin listing — includes inactive products, which the public list hides. */
+  async listAll(): Promise<ProductDTO[]> {
+    const rows = await prisma.product.findMany({
+      orderBy: { updatedAt: "desc" },
+      include: productInclude,
+    });
+    return rows.map(toProductDTO);
+  }
+
+  /** Admin single fetch by slug — active or not. */
+  async getAnyBySlug(slug: string): Promise<ProductDTO> {
+    const row = await prisma.product.findUnique({
+      where: { slug },
+      include: productInclude,
+    });
+    if (!row) throw new NotFoundException("Product not found");
+    return toProductDTO(row);
+  }
+
   async getBySlug(slug: string): Promise<ProductDTO> {
     const row = await prisma.product.findFirst({
       where: { slug, active: true },

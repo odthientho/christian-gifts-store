@@ -3,11 +3,9 @@ import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
 
 import { db } from "@/lib/db";
 import { loginSchema } from "@/lib/validations/auth";
-import { CART_COOKIE, ensureUserCart, mergeGuestCart } from "@/lib/cart-merge";
 import type { Role } from "@/lib/generated/prisma/enums";
 
 // Session strategy is JWT, not database. Auth.js only supports the Credentials
@@ -67,25 +65,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-  events: {
-    // Fires after a successful sign-in, in the request scope, so cookies() is
-    // readable. Folding the guest cart in here means a user who filled a cart
-    // and then signed in to pay sees it immediately, rather than only after
-    // their next cart action.
-    async signIn({ user }) {
-      if (!user.id) return;
-      try {
-        const jar = await cookies();
-        const guestToken = jar.get(CART_COOKIE)?.value;
-        if (!guestToken) return;
-        const userCartId = await ensureUserCart(user.id);
-        await mergeGuestCart(guestToken, userCartId);
-      } catch {
-        // A failed merge must never block sign-in. The Server Action fallback
-        // in resolveCart() will retry on the next cart mutation.
-      }
-    },
-  },
   callbacks: {
     async jwt({ token, user }) {
       // `user` is only present on initial sign-in.

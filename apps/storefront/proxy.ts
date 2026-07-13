@@ -14,11 +14,6 @@ import { clientIp, rateLimit, LIMITS } from "@/lib/rate-limit";
 // Every /admin page and every admin Server Action calls `requireAdmin()`
 // server-side; that is what actually enforces access.
 
-const SESSION_COOKIES = [
-  "authjs.session-token",
-  "__Secure-authjs.session-token",
-];
-
 const CREDENTIALS_ENDPOINT = "/api/auth/callback/credentials";
 
 export function proxy(request: NextRequest) {
@@ -42,19 +37,7 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  // 2. Optimistic /admin redirect.
-  if (pathname.startsWith("/admin")) {
-    const hasSession = SESSION_COOKIES.some((name) =>
-      request.cookies.has(name),
-    );
-    if (!hasSession) {
-      const url = new URL("/login", request.url);
-      url.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(url);
-    }
-  }
-
-  // 3. CSP. A fresh nonce per request; Next attaches it to its own scripts.
+  // 2. CSP. A fresh nonce per request; Next attaches it to its own scripts.
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const isDev = process.env.NODE_ENV === "development";
 
