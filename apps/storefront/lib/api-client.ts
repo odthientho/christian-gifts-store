@@ -1,4 +1,4 @@
-import type { ProductDTO, CategoryDTO } from "@gin/contracts";
+import type { ProductDTO, CategoryDTO, CartViewDTO } from "@gin/contracts";
 
 // Server-side client for the GIN API. Runs in Server Components / route handlers
 // only — the browser never calls the API directly, so the base URL stays a
@@ -54,4 +54,58 @@ export async function apiListCategories(
   type?: "BOOK" | "GIFT",
 ): Promise<ApiCategory[]> {
   return (await apiGet<ApiCategory[]>(`/categories${qs({ type })}`)) ?? [];
+}
+
+// --- Cart ------------------------------------------------------------------
+// Cart calls are never cached and carry the caller's opaque cart token.
+
+type ApiSendResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: string };
+
+async function apiSend<T>(
+  path: string,
+  method: "POST" | "PATCH",
+  body: unknown,
+): Promise<ApiSendResult<T>> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      method,
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+  } catch {
+    return { ok: false, error: "Could not reach the store service." };
+  }
+  const text = await res.text();
+  const parsed = text ? JSON.parse(text) : null;
+  if (!res.ok) {
+    const error =
+      parsed?.errors?.[0]?.message ?? parsed?.message ?? "Request failed.";
+    return { ok: false, error: Array.isArray(error) ? error[0] : error };
+  }
+  return { ok: true, data: parsed as T };
+}
+
+export async function apiGetCart(token: string | undefined): Promise<CartViewDTO | null> {
+  if (!token) return null;
+  return apiGet<CartViewDTO>(`/cart${qs({ token })}`, { revalidate: 0 });
+}
+
+export function apiAddToCart(
+  token: string | undefined,
+  productId: string,
+  quantity: number,
+) {
+  return apiSend<CartViewDTO>("/cart/items", "POST", { token, productId, quantity });
+}
+
+export function apiUpdateCartItem(
+  token: string,
+  productId: string,
+  quantity: number,
+) {
+  return apiSend<CartViewDTO>("/cart/items", "PATCH", { token, productId, quantity });
 }

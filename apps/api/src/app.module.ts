@@ -4,6 +4,7 @@ import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 
 import { ProductsModule } from "./products/products.module.js";
 import { AuthModule } from "./auth/auth.module.js";
+import { CartModule } from "./cart/cart.module.js";
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { AuthModule } from "./auth/auth.module.js";
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     AuthModule,
     ProductsModule,
+    CartModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
