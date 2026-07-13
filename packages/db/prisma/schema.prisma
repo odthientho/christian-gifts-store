@@ -4,9 +4,19 @@
 // Never store money as Float/Decimal here; format to a string only at display
 // time via lib/money.ts.
 
+// The API consumes this client through the @gin/db package.
 generator client {
   provider = "prisma-client"
-  output   = "../lib/generated/prisma"
+  output   = "../src/generated/prisma"
+}
+
+// The storefront compiles its own client from this shared schema as app-source
+// (Turbopack-friendly). Only the schema and migrations are shared; each app
+// gets a client generated for its own bundler. Cart, checkout, orders and auth
+// still read Postgres directly during the migration; products go via the API.
+generator storefront {
+  provider = "prisma-client"
+  output   = "../../../apps/storefront/lib/generated/prisma"
 }
 
 datasource db {

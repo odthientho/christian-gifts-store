@@ -1,10 +1,11 @@
 import { PrismaClient } from "@/lib/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-// The single Prisma client for the whole app. Import this — never call
-// `new PrismaClient()` anywhere else. In dev, Next.js hot-reloads modules on
-// every edit; without caching on globalThis each reload would open a new pool
-// and eventually exhaust Postgres connections.
+// The storefront's own Prisma client, generated from the shared schema in
+// packages/db. Products are read through the GIN API (see lib/products.ts);
+// this client backs the domains not yet migrated — cart, checkout, orders, auth.
+//
+// Cached on globalThis so a dev hot-reload does not open a new pool each edit.
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -16,7 +17,6 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createClient(): PrismaClient {
-  // Prisma 7 requires an explicit driver adapter.
   const adapter = new PrismaPg({ connectionString });
   return new PrismaClient({ adapter });
 }

@@ -1,130 +1,64 @@
-# GIN Store — Christian Gifts & Books
+# GIN Store — monorepo
 
-> Growing Faith. Inspiring Hope. Nurturing Love.
+Headless Christian gifts & books commerce, split into independently deployable
+services so more can be added later. **Growing Faith. Inspiring Hope. Nurturing Love.**
 
-A full e-commerce system for selling Christian books and gifts: a public
-storefront, a role-gated admin dashboard, and the backend that serves both.
+## Structure
 
-Built with Next.js 16 (App Router), TypeScript, PostgreSQL via Prisma 7,
-Auth.js, Stripe Checkout, and Tailwind + shadcn/ui.
-
-The storefront is **bilingual (Tiếng Việt / English)** with a header toggle,
-defaulting to Vietnamese. UI text and category names come from dictionaries in
-`lib/i18n/`; product titles stay in their original language. The visual design —
-coral-red and ice-blue palette, Be Vietnam Pro + Playfair Display type — follows
-the reference storefront at codochaidang.com, chosen with fonts that carry a real
-Vietnamese subset so tone-marked vowels render in-font. Prices are USD; the
-money model was left on its verified footing.
-
-## Features
-
-**Storefront**
-- Featured products on the home page
-- Separate `/books` and `/gifts` catalogs, filterable by category
-- Product pages with type-specific details (author/ISBN/format for books,
-  material/dimensions/occasion for gifts)
-- Guest cart backed by an httpOnly cookie, or a persistent cart when signed in
-- Free shipping above $50, flat $5.99 below
-- Stripe Checkout, with the order total recomputed server-side
-
-**Admin** (`/admin`, admins only)
-- Dashboard: active products, order count, paid revenue, low-stock warnings
-- Product create / edit / delete, with book and gift variants
-- Order list with status control
-
-**Backend**
-- Server Actions as the mutation layer, each re-checking authorization
-- Zod validation on every external input
-- Stripe webhook with signature verification and idempotent fulfilment
-- Stock reserved with a conditional update, so concurrent buyers cannot oversell
-- Order confirmation scoped to the buyer — an order number is not a capability
-- Rate limiting on sign-in, registration and checkout
-- CSP with a per-request nonce, plus HSTS, `nosniff` and frame protection
-
-## Quick start
-
-Requires Node 20.9+, and Docker (or [Colima](https://github.com/abiosoft/colima)).
-
-```bash
-cp .env.example .env
+```
+packages/
+  db/          @gin/db        Prisma schema, migrations, seed. Owns the database.
+                              Exposes the client to the API; the storefront
+                              generates its own client from the same schema.
+  contracts/   @gin/contracts Shared Zod schemas + DTO types + money helpers.
+                              One wire contract for every service.
+apps/
+  api/         @gin/api       NestJS. All business logic and HTTP endpoints.
+                              The only service that talks to the database for
+                              product reads/writes.
+  storefront/  @gin/storefront Next.js customer store. Reads products from the API.
+  admin/       @gin/admin     Next.js admin dashboard (in progress).
 ```
 
-Fill in `.env` — generate the auth secret with:
+Why a monorepo of separate apps rather than one app: each service builds and
+deploys on its own, but they share one schema and one set of types, so a
+change to the contract is a single edit — not a coordinated release across
+three repositories.
 
-```bash
-npx auth secret
-```
+## Migration status (Products vertical slice)
 
-Then:
+The **Products** domain is fully headless: the storefront reads it over HTTP
+from the API. The remaining domains — cart, checkout, orders, auth — still read
+Postgres directly from the storefront during the migration, and move to the API
+one slice at a time.
+
+| Domain    | Storefront reads from       | Status |
+|-----------|-----------------------------|--------|
+| Products  | GIN API (`/api/products`)   | ✅ migrated |
+| Cart      | Postgres (direct)           | pending |
+| Checkout  | Postgres + Stripe (direct)  | pending |
+| Orders    | Postgres (direct)           | pending |
+| Auth      | Auth.js + Postgres (direct) | pending |
+
+## Running it
 
 ```bash
 npm install
-npm run db:up        # Postgres 17 on localhost:5433
-npm run db:migrate
-npm run db:seed
-npm run dev
+npm run db:up          # Postgres in Docker (port 5433)
+npm run db:migrate     # apply migrations
+npm run db:seed        # seed products + admin user
+
+# each service in its own terminal
+npm run dev -w @gin/api          # http://localhost:4000/api
+npm run dev -w @gin/storefront   # http://localhost:3000
 ```
 
-Open http://localhost:3000. Sign in at `/login` with the seeded admin
-credentials (`SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` in `.env`) to reach
-`/admin`.
+The API's admin endpoints are guarded by a bearer token (`ADMIN_API_TOKEN`) for
+now; the full JWT auth slice replaces that with real login + role claims. Rate
+limiting, security headers (helmet), CORS, and Zod validation are enforced at
+the API boundary.
 
-### Payments
+## Tech
 
-Checkout stays disabled, with a visible notice, until Stripe keys are present.
-Add test keys from the [Stripe dashboard](https://dashboard.stripe.com/test/apikeys)
-to `.env`, then forward webhooks in a second terminal:
-
-```bash
-npm run stripe:listen
-```
-
-Copy the `whsec_…` it prints into `STRIPE_WEBHOOK_SECRET`.
-
-## Scripts
-
-| Script | Purpose |
-|---|---|
-| `npm run dev` | Dev server |
-| `npm run build` | Production build |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm run lint` | ESLint |
-| `npm run db:up` / `db:down` | Start / stop Postgres |
-| `npm run db:migrate` | Apply migrations |
-| `npm run db:seed` | Seed catalog + admin user |
-| `npm run db:studio` | Prisma Studio |
-| `npm run db:reset` | Drop, re-migrate, re-seed |
-| `npm run stripe:listen` | Forward Stripe webhooks locally |
-
-## Project layout
-
-```
-app/(storefront)/   public pages
-app/(admin)/admin/  admin dashboard — role-gated
-app/(auth)/         login, register
-app/api/            auth handler, Stripe webhook
-lib/                db, auth, stripe, money, cart, validations
-server/             Server Actions (the mutation layer)
-prisma/             schema, migrations, seed
-proxy.ts            optimistic /admin redirect — not authorization
-```
-
-## Conventions
-
-- **Money is integer cents.** `$12.99` is `1299`. Format only at display time
-  with `lib/money.ts`.
-- **Server Components by default**; `"use client"` only where there is
-  interactivity.
-- **All database access goes through the `lib/db.ts` singleton.**
-- **Every admin route and action calls `requireAdmin()`.** Hiding a link is not
-  access control, and neither is `proxy.ts`.
-- **Never trust a client-sent price.** Recompute from the database.
-- **An identifier is not an authorization.** Loading a row by id or order number
-  must still check the caller is entitled to it.
-
-See [PLAN.md](PLAN.md) for the architecture, the security model, what was
-verified, and the roadmap.
-
-## License
-
-MIT
+Next.js 16 · NestJS 11 · Prisma 7 (Postgres) · Zod · Stripe · Turborepo · TypeScript.
+Storefront is bilingual (vi/en) with a coral/ice-blue theme.
