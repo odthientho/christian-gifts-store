@@ -1,0 +1,9 @@
+# generated prisma client
+/src/generated
+
+# env
+.env
+!.env.example
+
+/dist
+node_modules

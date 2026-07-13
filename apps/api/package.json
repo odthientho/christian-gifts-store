@@ -1,0 +1,33 @@
+{
+  "name": "@gin/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --import @swc-node/register/esm-register --watch src/main.ts",
+    "start": "node --import @swc-node/register/esm-register src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@gin/contracts": "*",
+    "@gin/db": "*",
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/config": "^4.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/throttler": "^6.4.0",
+    "@swc-node/register": "^1.11.1",
+    "@swc/core": "^1.15.43",
+    "dotenv": "^17.4.2",
+    "helmet": "^8.0.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^20",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.2"
+  }
+}

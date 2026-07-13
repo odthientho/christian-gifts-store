@@ -27,6 +27,9 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
 
+  // @gin/contracts ships TypeScript source; Next must compile it.
+  transpilePackages: ["@gin/contracts"],
+
   async headers() {
     const headers = [...securityHeaders];
 
