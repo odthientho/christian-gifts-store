@@ -1,4 +1,9 @@
-import type { ProductDTO, CategoryDTO, CartViewDTO } from "@gin/contracts";
+import type {
+  ProductDTO,
+  CategoryDTO,
+  CartViewDTO,
+  OrderDTO,
+} from "@gin/contracts";
 
 // Server-side client for the GIN API. Runs in Server Components / route handlers
 // only — the browser never calls the API directly, so the base URL stays a
@@ -108,4 +113,21 @@ export function apiUpdateCartItem(
   quantity: number,
 ) {
   return apiSend<CartViewDTO>("/cart/items", "PATCH", { token, productId, quantity });
+}
+
+// --- Checkout & orders -----------------------------------------------------
+
+export function apiCheckout(email: string, cartToken: string) {
+  return apiSend<{ url: string }>("/checkout", "POST", { email, cartToken });
+}
+
+/** Returns the order only if the cart token entitles the caller; else null. */
+export async function apiGetOrder(
+  orderNumber: string,
+  cartToken: string | undefined,
+): Promise<OrderDTO | null> {
+  return apiGet<OrderDTO>(
+    `/orders/${encodeURIComponent(orderNumber)}${qs({ cartToken })}`,
+    { revalidate: 0 },
+  );
 }

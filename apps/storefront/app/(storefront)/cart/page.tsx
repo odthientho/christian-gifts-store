@@ -4,7 +4,6 @@ import { ShoppingBag, Truck } from "lucide-react";
 
 import { getCart, FREE_SHIPPING_THRESHOLD_CENTS } from "@/lib/cart";
 import { getCurrentUser } from "@/lib/auth";
-import { isStripeConfigured } from "@/lib/stripe";
 import { formatCents } from "@/lib/money";
 import { getDictionary, interpolate } from "@/lib/i18n";
 import { CartLines } from "@/components/storefront/cart-lines";
@@ -24,7 +23,9 @@ export default async function CartPage() {
     getCurrentUser(),
     getDictionary(),
   ]);
-  const stripeReady = isStripeConfigured();
+  // The API owns payment config now. Always offer checkout; if the API has no
+  // Stripe keys it returns a clear error the form surfaces on click.
+  const stripeReady = true;
 
   if (cart.lines.length === 0) {
     return (
