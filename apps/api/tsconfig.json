@@ -1,8 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    // Runtime is SWC (see .swcrc); these only affect `tsc --noEmit`. Bundler
+    // resolution matches how SWC and the Next apps resolve the workspace
+    // packages — extensionless specifiers and .ts behind a .js import both work.
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "noEmit": true,
