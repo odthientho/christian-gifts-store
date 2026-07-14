@@ -8,7 +8,6 @@ import {
   Package,
   Tags,
   Image as ImageIcon,
-  BarChart3,
 } from "lucide-react";
 
 const ITEMS = [
@@ -17,7 +16,6 @@ const ITEMS = [
   { href: "/products", label: "Products", icon: Package },
   { href: "/categories", label: "Categories", icon: Tags },
   { href: "/content", label: "Site content", icon: ImageIcon },
-  { href: "/reports", label: "Reports", icon: BarChart3 },
 ];
 
 export function SidebarNav({
