@@ -180,29 +180,44 @@ export class OrdersService {
 
   /**
    * Fulfil a paid Checkout Session — idempotent, with an oversell guard.
-   * Stripe retries webhooks, so a second delivery of the same event must be a
-   * no-op; the unique stripeSessionId makes the PAID transition happen once.
+   * Stripe retries webhooks, and may deliver the same event more than once even
+   * on success, so this must be safe to run twice concurrently.
    */
   async fulfillCheckoutSession(session: Stripe.Checkout.Session): Promise<void> {
     const orderId = session.metadata?.orderId;
     if (!orderId) return;
 
-    await prisma.$transaction(async (tx) => {
-      const order = await tx.order.findUnique({ where: { id: orderId } });
-      if (!order || order.status !== "PENDING") return; // already handled
+    // `payment_status` is what actually says money moved — a session can
+    // "complete" without being paid (e.g. `no_payment_required` is the only
+    // other value Stripe sends here, but never fulfil on faith).
+    if (session.payment_status !== "paid") return;
 
-      await tx.order.update({
-        where: { id: orderId },
+    const paymentIntentId =
+      typeof session.payment_intent === "string"
+        ? session.payment_intent
+        : (session.payment_intent?.id ?? null);
+
+    let cartId: string | null = null;
+
+    await prisma.$transaction(async (tx) => {
+      // Atomic idempotency guard: `updateMany` with `status: "PENDING"` in the
+      // WHERE clause either claims the row or matches nothing — there is no
+      // window between reading and writing for a second concurrent delivery of
+      // the same event to slip through. A `findUnique` then `update` would have
+      // exactly that window and let two concurrent deliveries both proceed.
+      const claimed = await tx.order.updateMany({
+        where: { id: orderId, status: "PENDING" },
         data: {
           status: "PAID",
           paidAt: new Date(),
           stripeSessionId: session.id,
-          stripePaymentIntentId:
-            typeof session.payment_intent === "string"
-              ? session.payment_intent
-              : null,
+          stripePaymentIntentId: paymentIntentId,
+          ...addressFrom(session),
         },
       });
+
+      // Already processed by an earlier delivery of this event.
+      if (claimed.count === 0) return;
 
       const items = await tx.orderItem.findMany({
         where: { orderId },
@@ -230,6 +245,48 @@ export class OrdersService {
           data: { needsReview: true },
         });
       }
+
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        select: { cartId: true },
+      });
+      cartId = order?.cartId ?? null;
+    });
+
+    // The cart has served its purpose; empty it so the buyer starts clean.
+    // Outside the transaction: it's cleanup, not part of the money-moving
+    // invariant above, and a failure here must not roll back the payment record.
+    if (cartId) {
+      await prisma.cartItem.deleteMany({ where: { cartId } });
+    }
+  }
+
+  /** Mark an order refunded. Idempotent: re-delivery just re-matches zero rows. */
+  async markRefunded(charge: Stripe.Charge): Promise<void> {
+    const paymentIntentId =
+      typeof charge.payment_intent === "string"
+        ? charge.payment_intent
+        : (charge.payment_intent?.id ?? null);
+    if (!paymentIntentId) return;
+
+    await prisma.order.updateMany({
+      where: { stripePaymentIntentId: paymentIntentId, status: { not: "REFUNDED" } },
+      data: { status: "REFUNDED" },
     });
   }
+}
+
+function addressFrom(session: Stripe.Checkout.Session) {
+  const details = session.customer_details;
+  const address = details?.address;
+  if (!address) return {};
+  return {
+    shippingName: details?.name ?? null,
+    shippingLine1: address.line1 ?? null,
+    shippingLine2: address.line2 ?? null,
+    shippingCity: address.city ?? null,
+    shippingState: address.state ?? null,
+    shippingPostal: address.postal_code ?? null,
+    shippingCountry: address.country ?? null,
+  };
 }

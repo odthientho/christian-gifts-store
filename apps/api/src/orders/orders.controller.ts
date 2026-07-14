@@ -13,6 +13,7 @@ import {
 import type { RawBodyRequest } from "@nestjs/common";
 import type { Request } from "express";
 import type Stripe from "stripe";
+import { Throttle } from "@nestjs/throttler";
 import { checkoutSchema, type CheckoutInput } from "@gin/contracts";
 
 import { OrdersService } from "./orders.service.js";
@@ -26,7 +27,10 @@ export class OrdersController {
     private readonly stripe: StripeService,
   ) {}
 
+  // Each hit creates a real order row and a real Stripe Checkout Session — a
+  // tighter limit than the global default, matching the original design.
   @Post("checkout")
+  @Throttle({ default: { ttl: 600_000, limit: 20 } })
   async checkout(
     @Body(new ZodValidationPipe(checkoutSchema)) body: CheckoutInput,
     @Headers("origin") origin?: string,
@@ -68,10 +72,18 @@ export class OrdersController {
       throw new BadRequestException(`Webhook signature failed: ${message}`);
     }
 
-    if (event.type === "checkout.session.completed") {
-      await this.orders.fulfillCheckoutSession(
-        event.data.object as Stripe.Checkout.Session,
-      );
+    switch (event.type) {
+      case "checkout.session.completed":
+        await this.orders.fulfillCheckoutSession(
+          event.data.object as Stripe.Checkout.Session,
+        );
+        break;
+      case "charge.refunded":
+        await this.orders.markRefunded(event.data.object as Stripe.Charge);
+        break;
+      default:
+        // Unhandled events are fine; acknowledge so Stripe stops retrying.
+        break;
     }
     return { received: true };
   }
