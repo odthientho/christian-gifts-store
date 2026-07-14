@@ -1,13 +1,5 @@
 import Link from "next/link";
-import {
-  DollarSign,
-  ShoppingCart,
-  Receipt,
-  Users,
-  AlertTriangle,
-  Clock,
-  BarChart3,
-} from "lucide-react";
+import { DollarSign, ShoppingCart, Users } from "lucide-react";
 
 import { apiAdminDashboard } from "@/lib/api";
 import { formatCents } from "@gin/contracts";
@@ -30,13 +22,6 @@ const STATUS_STYLES: Record<string, string> = {
 // checkout" and starts being "we might be about to lose this customer."
 const OVERDUE_HOURS = 48;
 
-function formatAge(hours: number): string {
-  if (hours < 1) return "less than an hour ago";
-  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-  const days = Math.round(hours / 24);
-  return `${days} day${days === 1 ? "" : "s"} ago`;
-}
-
 export default async function DashboardPage() {
   const summary = await apiAdminDashboard();
 
@@ -47,100 +32,28 @@ export default async function DashboardPage() {
   const pendingOverdue =
     summary.oldestPendingAgeHours !== null && summary.oldestPendingAgeHours >= OVERDUE_HOURS;
 
-  const alerts = [
-    summary.pendingPaymentCount > 0 && {
-      key: "pending",
-      icon: Clock,
-      urgent: pendingOverdue,
-      text: `${summary.pendingPaymentCount} order${summary.pendingPaymentCount === 1 ? "" : "s"} awaiting payment (${formatCents(summary.pendingPaymentTotalCents)})${
-        summary.oldestPendingAgeHours !== null
-          ? ` — oldest placed ${formatAge(summary.oldestPendingAgeHours)}`
-          : ""
-      }. Contact the customer to collect payment and fulfil.`,
-      href: "/orders?status=PENDING",
-    },
-    summary.ordersNeedingReview > 0 && {
-      key: "review",
-      icon: AlertTriangle,
-      urgent: true,
-      text: `${summary.ordersNeedingReview} order${summary.ordersNeedingReview === 1 ? "" : "s"} need review — paid but short on stock.`,
-      href: "/orders",
-    },
-  ].filter((a): a is Exclude<typeof a, false> => a !== false);
-
-  const anyUrgent = alerts.some((a) => a.urgent);
-  const panelTone = anyUrgent
-    ? {
-        border: "border-red-200",
-        bg: "bg-red-50",
-        heading: "text-red-700",
-        text: "text-red-800",
-        hover: "hover:bg-red-100",
-      }
-    : {
-        border: "border-amber-200",
-        bg: "bg-amber-50",
-        heading: "text-amber-700",
-        text: "text-amber-800",
-        hover: "hover:bg-amber-100",
-      };
-
-  // One sentence, before anything else — the answer to "how's the business
-  // doing today?" shouldn't require reading four KPI cards and two tables.
-  const summaryLine = [
-    `This week: ${formatCents(summary.salesLast7DaysCents)} in sales`,
-    summary.salesChangePct !== null
-      ? `(${summary.salesChangePct > 0 ? "+" : ""}${summary.salesChangePct}% vs. last week)`
+  // Folded into the Total orders tile rather than a separate panel — the
+  // count that actually needs a click is right next to the total it's part of.
+  const orderCaptionParts = [
+    summary.pendingPaymentCount > 0
+      ? `${summary.pendingPaymentCount} awaiting payment`
       : null,
-    alerts.length > 0
-      ? `· ${alerts.length} thing${alerts.length === 1 ? "" : "s"} need${alerts.length === 1 ? "s" : ""} your attention`
-      : "· nothing needs your attention right now",
-  ]
-    .filter(Boolean)
-    .join(" ");
+    summary.ordersNeedingReview > 0 ? `${summary.ordersNeedingReview} need review` : null,
+  ].filter(Boolean);
+  const orderCaption =
+    orderCaptionParts.length > 0 ? orderCaptionParts.join(" · ") : undefined;
+  const orderCaptionTone =
+    pendingOverdue || summary.ordersNeedingReview > 0
+      ? "danger"
+      : summary.pendingPaymentCount > 0
+        ? "warning"
+        : "neutral";
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Dashboard</h1>
-        <Link
-          href="/reports"
-          className="flex items-center gap-1.5 text-sm text-primary hover:underline"
-        >
-          <BarChart3 className="size-4" strokeWidth={2} />
-          Full reports →
-        </Link>
-      </div>
+      <h1 className="text-xl font-semibold">Dashboard</h1>
 
-      <p className="text-sm text-neutral-600">{summaryLine}</p>
-
-      {alerts.length > 0 && (
-        <div className={`overflow-hidden rounded-xl border ${panelTone.border} ${panelTone.bg}`}>
-          <p
-            className={`border-b ${panelTone.border} px-5 py-2 text-xs font-semibold uppercase tracking-wide ${panelTone.heading}`}
-          >
-            Needs attention
-          </p>
-          <ul className={`divide-y ${panelTone.border}`}>
-            {alerts.map((a) => (
-              <li key={a.key}>
-                <Link
-                  href={a.href}
-                  className={`flex items-center justify-between gap-4 px-5 py-3 text-sm ${panelTone.text} transition-colors ${panelTone.hover}`}
-                >
-                  <span className="flex items-center gap-2.5">
-                    <a.icon className="size-4 shrink-0" strokeWidth={2} />
-                    {a.text}
-                  </span>
-                  <span className="shrink-0 font-medium underline">Review →</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-3">
         <KpiCard
           label="Total sales"
           value={formatCents(summary.totalSalesCents)}
@@ -151,14 +64,11 @@ export default async function DashboardPage() {
           label="Total orders"
           value={summary.totalOrders.toString()}
           icon={ShoppingCart}
-          tone="neutral"
+          tone={orderCaptionTone === "neutral" ? "neutral" : "warning"}
           changePct={summary.ordersChangePct}
-        />
-        <KpiCard
-          label="Average order value"
-          value={formatCents(summary.avgOrderValueCents)}
-          icon={Receipt}
-          tone="neutral"
+          caption={orderCaption}
+          captionTone={orderCaptionTone}
+          href={orderCaption ? "/orders?status=PENDING" : undefined}
         />
         <KpiCard
           label="Customers"
