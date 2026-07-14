@@ -1,11 +1,12 @@
 import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
-import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
+import { ThrottlerModule } from "@nestjs/throttler";
 
 import { ProductsModule } from "./products/products.module.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { CartModule } from "./cart/cart.module.js";
 import { OrdersModule } from "./orders/orders.module.js";
+import { ProxyAwareThrottlerGuard } from "./common/proxy-aware-throttler.guard.js";
 
 @Module({
   imports: [
@@ -17,6 +18,6 @@ import { OrdersModule } from "./orders/orders.module.js";
     CartModule,
     OrdersModule,
   ],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [{ provide: APP_GUARD, useClass: ProxyAwareThrottlerGuard }],
 })
 export class AppModule {}

@@ -1,11 +1,12 @@
-import { db } from "@/lib/db";
-import type { ProductType } from "@/lib/generated/prisma/enums";
+import type { ProductTypeDTO } from "@gin/contracts";
 import {
   apiListProducts,
   apiGetProduct,
   apiListCategories,
   type ApiProduct,
 } from "@/lib/api-client";
+
+type ProductType = ProductTypeDTO;
 
 // Public product reads now go through the GIN API (headless). The DTO the API
 // returns already carries everything the storefront components need — category
@@ -67,24 +68,4 @@ export async function getProductBySlug(slug: string): Promise<ApiProduct | null>
 
 export async function getCategories(type?: ProductType) {
   return apiListCategories(type);
-}
-
-// --- Admin reads -----------------------------------------------------------
-// These still read Postgres directly (they include inactive products, which the
-// public API never exposes). They move to the admin app with its own API calls
-// in the admin milestone; kept on `db` here so the current admin route group
-// keeps working during the migration.
-
-export async function getAllProductsForAdmin() {
-  return db.product.findMany({
-    orderBy: { updatedAt: "desc" },
-    include: { category: true, bookDetail: true, giftDetail: true },
-  });
-}
-
-export async function getProductForAdmin(id: string) {
-  return db.product.findUnique({
-    where: { id },
-    include: { bookDetail: true, giftDetail: true },
-  });
 }

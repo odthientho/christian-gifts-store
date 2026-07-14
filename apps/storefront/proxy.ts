@@ -1,43 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { clientIp, rateLimit, LIMITS } from "@/lib/rate-limit";
-
 // Next.js 16 renamed `middleware` to `proxy`. Same behaviour, node runtime.
-//
-// Three jobs, in order:
-//   1. Rate-limit the credentials sign-in endpoint (brute-force defence).
-//   2. Bounce signed-out visitors off /admin — an *optimistic* redirect only.
-//   3. Attach a per-request CSP nonce and the security headers.
-//
-// (2) is NOT the authorization check. It reads a cookie's presence and cannot
-// verify the signature or the role, and it never runs before a Server Action.
-// Every /admin page and every admin Server Action calls `requireAdmin()`
-// server-side; that is what actually enforces access.
-
-const CREDENTIALS_ENDPOINT = "/api/auth/callback/credentials";
+// Its only job now is to attach a per-request CSP nonce and security headers;
+// auth and rate limiting live in the API and the auth Server Actions.
 
 export function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  // 1. Brute-force defence on the sign-in endpoint. Server Actions call
-  //    `signIn` in-process, so `loginAction` limits itself separately — this
-  //    covers anyone POSTing the Auth.js endpoint directly, as a script would.
-  if (pathname === CREDENTIALS_ENDPOINT && request.method === "POST") {
-    const ip = clientIp(request.headers);
-    const { ok, retryAfter } = rateLimit(
-      `login:${ip}`,
-      LIMITS.login.limit,
-      LIMITS.login.windowMs,
-    );
-    if (!ok) {
-      return new NextResponse("Too many sign-in attempts. Try again later.", {
-        status: 429,
-        headers: { "Retry-After": String(retryAfter) },
-      });
-    }
-  }
-
-  // 2. CSP. A fresh nonce per request; Next attaches it to its own scripts.
+  // CSP. A fresh nonce per request; Next attaches it to its own scripts.
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const isDev = process.env.NODE_ENV === "development";
 

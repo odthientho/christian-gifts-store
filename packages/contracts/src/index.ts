@@ -1,7 +1,9 @@
-// Extensionless so both Turbopack (bundler resolution, used by the Next apps)
-// and SWC (used by the API) resolve these the same way.
-export * from "./money";
-export * from "./product";
-export * from "./auth";
-export * from "./cart";
-export * from "./order";
+// .js extensions on relative specifiers, even though the source files are
+// .ts: this compiles under NodeNext (see tsconfig.json / `npm run build`),
+// which requires them, and they resolve correctly for consumers that read
+// this package's compiled `dist/` output.
+export * from "./money.js";
+export * from "./product.js";
+export * from "./auth.js";
+export * from "./cart.js";
+export * from "./order.js";

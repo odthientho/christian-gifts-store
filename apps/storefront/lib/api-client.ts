@@ -3,6 +3,8 @@ import type {
   CategoryDTO,
   CartViewDTO,
   OrderDTO,
+  AuthResponse,
+  AuthUserDTO,
 } from "@gin/contracts";
 
 // Server-side client for the GIN API. Runs in Server Components / route handlers
@@ -72,12 +74,25 @@ async function apiSend<T>(
   path: string,
   method: "POST" | "PATCH",
   body: unknown,
+  // Every request the storefront makes to the API arrives from the same
+  // server-to-server connection, so the API's own per-IP rate limiting would
+  // otherwise see one shared identity for every visitor and throttle the whole
+  // site as a unit. Forwarding the real visitor IP lets the API's throttler key
+  // on the actual caller — trusted here because CORS_ORIGINS restricts the API
+  // to this app and the admin app, not arbitrary browsers.
+  visitorIp?: string,
 ): Promise<ApiSendResult<T>> {
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    accept: "application/json",
+  };
+  if (visitorIp) headers["x-forwarded-for"] = visitorIp;
+
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, {
       method,
-      headers: { "content-type": "application/json", accept: "application/json" },
+      headers,
       body: JSON.stringify(body),
       cache: "no-store",
     });
@@ -117,8 +132,13 @@ export function apiUpdateCartItem(
 
 // --- Checkout & orders -----------------------------------------------------
 
-export function apiCheckout(email: string, cartToken: string) {
-  return apiSend<{ url: string }>("/checkout", "POST", { email, cartToken });
+export function apiCheckout(email: string, cartToken: string, visitorIp?: string) {
+  return apiSend<{ url: string }>(
+    "/checkout",
+    "POST",
+    { email, cartToken },
+    visitorIp,
+  );
 }
 
 /** Returns the order only if the cart token entitles the caller; else null. */
@@ -130,4 +150,45 @@ export async function apiGetOrder(
     `/orders/${encodeURIComponent(orderNumber)}${qs({ cartToken })}`,
     { revalidate: 0 },
   );
+}
+
+// --- Auth ------------------------------------------------------------------
+
+export function apiLogin(email: string, password: string, visitorIp?: string) {
+  return apiSend<AuthResponse>(
+    "/auth/login",
+    "POST",
+    { email, password },
+    visitorIp,
+  );
+}
+
+export function apiRegister(
+  name: string,
+  email: string,
+  password: string,
+  visitorIp?: string,
+) {
+  return apiSend<AuthResponse>(
+    "/auth/register",
+    "POST",
+    { name, email, password },
+    visitorIp,
+  );
+}
+
+/** The user behind a session token, or null if the token is missing/invalid. */
+export async function apiMe(token: string | undefined): Promise<AuthUserDTO | null> {
+  if (!token) return null;
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/auth/me`, {
+      headers: { authorization: `Bearer ${token}`, accept: "application/json" },
+      cache: "no-store",
+    });
+  } catch {
+    return null;
+  }
+  if (!res.ok) return null;
+  return (await res.json()) as AuthUserDTO;
 }

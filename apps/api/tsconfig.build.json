@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Unlike tsconfig.json (bundler resolution, for `tsc --noEmit` and SWC's
+    // dev-time runtime): this actually emits, and the emitted JS runs under
+    // plain `node` with no loader, so resolution must match that reality —
+    // NodeNext, same as the package's own "type": "module".
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "noEmit": false,
+    "outDir": "dist",
+    "types": ["node"],
+    "noUncheckedIndexedAccess": false
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "tmp-*.mts"]
+}

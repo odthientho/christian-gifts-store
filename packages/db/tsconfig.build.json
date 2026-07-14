@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "dist",
+    "rootDir": "src",
+    "noEmit": false,
+    // The generated Prisma client is machine-generated and not covered by this
+    // project's own strict-mode conventions; emit it as-is rather than fail the
+    // build on its internals. `src/index.ts`, the hand-written entry point,
+    // still gets full type-checking before this ever runs.
+    "noEmitOnError": false
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -4,44 +4,54 @@ A custom e-commerce system in three parts: a public storefront, a role-gated
 admin dashboard, and the backend API and services behind both.
 
 This document is the plan the system was built against, and the reference for
-extending it. Phases 0–6 are complete and verified; Phase 7 onward is the
-roadmap.
+extending it. Phases 0–6 shipped as a single Next.js application; Phase 7
+split that app into three independently deployable services, described below.
+Phase 8 onward is the roadmap.
 
 ---
 
 ## 1. Architecture
 
-One Next.js application, not three deployables. The "backend API" is the Server
-Action and Route Handler layer — it runs on the server, owns the database, and
-is the only thing that talks to Stripe. The storefront and admin are two route
-groups rendered by that same server.
+Three deployable services in one npm-workspaces monorepo, plus two shared
+packages. The API owns the database and Stripe; the storefront and admin are
+both pure HTTP clients of it — neither holds a database connection or a
+Prisma client of its own.
 
 ```
-Browser (storefront)  ─┐
-                       ├─→  Next.js server  ─→  Prisma  ─→  PostgreSQL
-Browser (admin)       ─┘         │
-                                 └─→  Stripe API
-Stripe  ──webhook──────────────→ /api/stripe/webhook
+apps/storefront (Next.js, :3000)  ─┐
+                                    ├─→  apps/api (NestJS, :4000)  ─→  Postgres
+apps/admin (Next.js, :3001)       ─┘         │
+                                              └─→  Stripe API
+Stripe  ──webhook───────────────────────────→ /api/stripe/webhook
+
+packages/db          Prisma schema + client, imported only by apps/api
+packages/contracts   Shared Zod schemas, DTOs, money helpers — the one
+                     definition of the wire format between the API and
+                     both UIs
 ```
 
-Why one app rather than a separate API service: a separate service would need
-its own auth, its own deploy, and a network hop for every product read, while
-buying nothing here — there is no second consumer of the API. Server Actions
-give a typed function call across the network boundary with no REST layer to
-maintain. If a mobile client ever appears, the `server/` directory is already
-the service layer and can be re-exposed over HTTP without touching the UI.
+Why split: the storefront, admin, and any future consumer (mobile, a partner
+integration) now go through one real HTTP API with its own auth (JWT,
+role-scoped), its own rate limiting, and its own deploy lifecycle, independent
+of either frontend's release cadence. The cost is what a single process didn't
+need: real network hops, and duplicated concerns (CORS, a second layer of rate
+limiting per app, IP-forwarding between the frontends and the API so the API's
+own throttle sees the real visitor rather than the calling frontend's server).
+See `## 7. Migration notes` for what changed in that split and what is still
+owed.
 
 ### Stack
 
 | Concern | Choice | Version |
 |---|---|---|
-| Framework | Next.js App Router, TypeScript strict | 16.2 |
+| Storefront / Admin | Next.js App Router, TypeScript strict | 16.2 |
+| API | NestJS, TypeScript strict | 11 |
 | UI | Tailwind CSS v4 + shadcn/ui (Base UI) | — |
 | Database | PostgreSQL via Docker | 17 |
-| ORM | Prisma with `@prisma/adapter-pg` | 7.8 |
-| Auth | Auth.js (NextAuth v5) + Prisma adapter | 5.0 beta |
-| Payments | Stripe Checkout + webhooks | 22.3 |
-| Validation | Zod on every external input | 4.4 |
+| ORM | Prisma with `@prisma/adapter-pg`, in `packages/db` | 7.8 |
+| Auth | Custom JWT (API-issued), bcrypt-hashed passwords | — |
+| Payments | Stripe Checkout + webhooks (API-owned) | 22.3 |
+| Validation | Zod on every external input, shared via `packages/contracts` | 4.4 |
 
 Three version notes that shaped the code, because they differ from older
 tutorials:
@@ -279,19 +289,34 @@ Run against the real dev server and a real Postgres, not mocks.
 
 ## 6. Running it
 
+Four env files now, one per workspace that needs one — `packages/db/.env`
+(`DATABASE_URL`), `apps/api/.env` (`DATABASE_URL`, `JWT_SECRET`,
+`CORS_ORIGINS`, Stripe keys), `apps/storefront/.env` and `apps/admin/.env`
+(both just `API_URL`). Each has a matching `.env.example`.
+
 ```bash
-cp .env.example .env          # then fill in AUTH_SECRET and Stripe keys
-npm install
+for d in packages/db apps/api apps/storefront apps/admin; do
+  cp "$d/.env.example" "$d/.env"
+done
+# then: generate a JWT_SECRET (openssl rand -base64 32) into apps/api/.env,
+# and add Stripe test keys there for checkout.
+
+npm install                   # installs and links the whole workspace
 npm run db:up                 # Postgres 17 in Docker on :5433
 npm run db:migrate
 npm run db:seed               # 16 products, 7 categories, 1 admin
-npm run dev
+
+npm run dev                   # turbo runs api (:4000), storefront (:3000),
+                               # and admin (:3001) together
 ```
 
-Sign in at `/login` with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` from `.env`.
+Sign in to the admin app (`:3001/login`) with `SEED_ADMIN_EMAIL` /
+`SEED_ADMIN_PASSWORD` from `apps/api/.env` — the same credentials work as a
+regular customer login on the storefront.
 
-For checkout, add Stripe **test** keys to `.env` and run
-`npm run stripe:listen` in a second terminal to forward webhook events.
+For checkout, add Stripe **test** keys to `apps/api/.env` and run
+`stripe listen --forward-to localhost:4000/api/stripe/webhook` in a second
+terminal (the webhook is API-owned now, not storefront-owned).
 
 ### A note on the local Docker runtime
 
@@ -299,3 +324,92 @@ Docker Desktop is not required. This machine runs **Colima**, a headless Docker
 runtime (`brew install colima docker docker-compose`, then `colima start`).
 `docker compose` needs the compose plugin symlinked into `~/.docker/cli-plugins/`
 when installed via Homebrew. `docker-compose.yml` is unchanged by any of this.
+
+---
+
+## 7. Migration notes (Phase 7: single app → three services)
+
+The split was done in increments — Products first (end to end, to validate the
+architecture), then Auth, then Cart/Checkout/Orders — each verified against a
+live server before moving to the next. A QA pass after the split (below) found
+and fixed several defects that only exist because of the split; they were not
+present in the original single-app version.
+
+**Fixed as part of the split's QA pass:**
+
+- **Webhook idempotency race (real, reproducible bug).** The original
+  fulfilment handler used an atomic `updateMany({ where: { id, status:
+  "PENDING" } })` as its idempotency guard — matching the same pattern used for
+  the stock decrement two lines below. The ported version replaced it with a
+  non-atomic `findUnique` + `update`, which let two concurrent deliveries of
+  the *same* Stripe event both pass the "already handled" check. Confirmed
+  live: 100% reproducible false-positive `needsReview` flags on a cleanly
+  fulfilled order under concurrent duplicate webhook delivery. Fixed by
+  restoring the atomic guard; re-verified 4/4 clean runs after the fix, and
+  confirmed the *legitimate* oversell case (two different orders competing for
+  one unit of stock) still correctly flags the loser.
+- **Silently dropped webhook behavior.** The same rewrite also dropped the
+  `payment_status !== "paid"` guard, shipping-address capture from
+  `session.customer_details` (the `shippingName`/`shippingLine1`/… columns are
+  still in the schema — the migration just stopped writing to them), clearing
+  the cart on successful payment, and `charge.refunded` handling entirely (no
+  refund ever updated an order's status). All restored and verified live —
+  including that a legitimately oversold order still gets its shipping address
+  captured and its cart cleared, exactly like the winner.
+- **Rate-limit bucket conflation.** Every storefront→API and admin→API request
+  arrives from that app's own server, so NestJS's default `ThrottlerGuard` (keyed
+  on `req.ip`) saw one shared identity for every real visitor — a busy site
+  could have one customer's failed login attempts lock out everyone else's.
+  Fixed by forwarding the real visitor IP in `x-forwarded-for` from both UIs and
+  adding `ProxyAwareThrottlerGuard` (`apps/api/src/common/`) to trust it — a
+  trust boundary that holds only because `CORS_ORIGINS` restricts who can reach
+  the API at all. Verified live: exhausting one forwarded IP's login bucket
+  does not affect a different IP, and the fallback path (no header) still
+  throttles correctly.
+- **Raw exception text leaking to end users.** A throttled request returned the
+  literal NestJS message `"ThrottlerException: Too Many Requests"`, which the
+  storefront's login form rendered verbatim in a toast. Fixed with a
+  `getErrorMessage` override on the shared guard (not a rewrite of
+  `throwThrottlingException`, which would have dropped the `Retry-After`
+  header). Confirmed live in the browser.
+- **Missing checkout throttle.** `/checkout` had no per-route limit — only the
+  generous global default — despite creating a real order row and a real
+  Stripe Checkout Session per hit. Restored the original 20-per-10-minutes
+  limit.
+- Stale `ADMIN_API_TOKEN` placeholder left in `apps/api/.env`/`.env.example`
+  from before the real JWT+role guards existed; dead code, removed.
+- Dead file `apps/storefront/lib/validations/product.ts` — a leftover admin
+  product-form schema from before the admin app existed as its own service;
+  the admin app doesn't use it, nothing in the storefront does either. Removed.
+
+**Confirmed still correct after the split (not just assumed):** the
+order-confirmation IDOR protection (an order is returned only to the caller
+holding the cart token it was created from — a guessed order number and an
+unauthorized one both come back identically as "not found"); every `/admin/*`
+product endpoint requires a valid JWT *and* the `ADMIN` role, checked in that
+order; the register/login/checkout flow works end to end through the browser,
+including session persistence, sign-out clearing the cookie, and the vague
+"Invalid email or password" message that doesn't reveal whether an account
+exists.
+
+**Open, not fixed — needs a decision, not just code:** the `Cart` model still
+has a `userId` column, but `apps/api/src/cart/cart.service.ts` never reads or
+writes it — every cart, signed in or not, is now identified solely by the
+guest-token cookie. Two features the original build had (task history:
+"Merge guest cart into user cart on sign-in") are gone: a signed-in customer's
+cart no longer follows them to a different browser or device, and there is no
+merge of a guest cart into the account's cart at login. Restoring this
+properly means deciding how cart identity should work now that identity comes
+from a bearer JWT instead of a session cookie the API itself could read (e.g.
+should `GET /cart` optionally accept an `Authorization` header and prefer
+`userId` over the token when both are present; should the merge happen inside
+`/auth/login` itself, or as a follow-up call the storefront makes right after).
+That's a real design choice, not a restoration of one obvious right answer —
+flagged here rather than decided unilaterally.
+
+Also duplicated rather than shared: `apps/storefront/lib/validations/{auth,cart}.ts`
+re-declare schemas that already exist in `packages/contracts` (with friendlier
+client-side error messages, which is the likely reason they were kept
+separate). This isn't a live bug — both sets of rules currently agree — but it
+contradicts the project's own stated reason for `packages/contracts` to exist,
+and the two will drift the first time either one changes without the other.

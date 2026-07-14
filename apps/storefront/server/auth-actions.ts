@@ -1,29 +1,33 @@
 "use server";
 
-import { AuthError } from "next-auth";
-import { unstable_rethrow } from "next/navigation";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
-import { db } from "@/lib/db";
-import { signIn, hashPassword } from "@/lib/auth";
+import { apiLogin, apiRegister } from "@/lib/api-client";
+import { setSessionToken } from "@/lib/session";
 import { loginSchema, registerSchema } from "@/lib/validations/auth";
 import { clientIp, rateLimit, LIMITS } from "@/lib/rate-limit";
 
 export type AuthActionResult = { ok: true } | { ok: false; error: string };
 
 /**
- * A Server Action is a public HTTP endpoint. `signIn` runs in-process here, so
- * proxy.ts never sees it — this path needs its own limiter.
+ * A Server Action is a public HTTP endpoint, so it needs its own throttle in
+ * front of the API call — belt and braces alongside the API's own per-route
+ * limit. Returns the caller's IP (so it isn't computed twice) or an error
+ * message if the caller is over the limit.
  */
 async function throttle(
   bucket: string,
   { limit, windowMs }: { limit: number; windowMs: number },
-): Promise<string | null> {
+): Promise<{ ip: string; error: null } | { ip: null; error: string }> {
   const ip = clientIp(await headers());
   const { ok, retryAfter } = rateLimit(`${bucket}:${ip}`, limit, windowMs);
-  if (ok) return null;
+  if (ok) return { ip, error: null };
   const minutes = Math.max(1, Math.ceil(retryAfter / 60));
-  return `Too many attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
+  return {
+    ip: null,
+    error: `Too many attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`,
+  };
 }
 
 export async function loginAction(
@@ -31,37 +35,32 @@ export async function loginAction(
   callbackUrl?: string,
 ): Promise<AuthActionResult> {
   const throttled = await throttle("login", LIMITS.login);
-  if (throttled) return { ok: false, error: throttled };
+  if (throttled.ip === null) return { ok: false, error: throttled.error };
 
   const parsed = loginSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "Enter a valid email and password." };
   }
 
-  try {
-    await signIn("credentials", {
-      email: parsed.data.email,
-      password: parsed.data.password,
-      redirectTo: safeCallback(callbackUrl),
-    });
-    return { ok: true };
-  } catch (error) {
-    // A successful `signIn` signals its redirect by throwing. `unstable_rethrow`
-    // re-throws Next's control-flow errors and returns for anything else, so
-    // the browser still navigates.
-    unstable_rethrow(error);
+  // Forward the real visitor IP: every storefront->API call otherwise arrives
+  // from this server's single IP, which would make the API's own per-IP
+  // throttle see one shared identity for the whole site instead of per visitor.
+  const result = await apiLogin(
+    parsed.data.email,
+    parsed.data.password,
+    throttled.ip,
+  );
+  // The API returns a deliberately vague message that never reveals whether the
+  // email exists; surface it as-is.
+  if (!result.ok) return { ok: false, error: result.error };
 
-    if (error instanceof AuthError) {
-      // Deliberately vague: never reveal whether the email exists.
-      return { ok: false, error: "Invalid email or password." };
-    }
-    throw error;
-  }
+  await setSessionToken(result.data.token);
+  redirect(safeCallback(callbackUrl));
 }
 
 export async function registerAction(input: unknown): Promise<AuthActionResult> {
   const throttled = await throttle("register", LIMITS.register);
-  if (throttled) return { ok: false, error: throttled };
+  if (throttled.ip === null) return { ok: false, error: throttled.error };
 
   const parsed = registerSchema.safeParse(input);
   if (!parsed.success) {
@@ -71,35 +70,16 @@ export async function registerAction(input: unknown): Promise<AuthActionResult> 
     };
   }
 
-  const email = parsed.data.email.toLowerCase();
+  const result = await apiRegister(
+    parsed.data.name,
+    parsed.data.email,
+    parsed.data.password,
+    throttled.ip,
+  );
+  if (!result.ok) return { ok: false, error: result.error };
 
-  const existing = await db.user.findUnique({ where: { email } });
-  if (existing) {
-    return { ok: false, error: "That email cannot be registered." };
-  }
-
-  await db.user.create({
-    data: {
-      email,
-      name: parsed.data.name,
-      passwordHash: await hashPassword(parsed.data.password),
-      // Role never comes from user input. New accounts are always USER; an
-      // admin is promoted deliberately, out of band.
-      role: "USER",
-    },
-  });
-
-  try {
-    await signIn("credentials", {
-      email,
-      password: parsed.data.password,
-      redirectTo: "/",
-    });
-    return { ok: true };
-  } catch (error) {
-    unstable_rethrow(error);
-    throw error;
-  }
+  await setSessionToken(result.data.token);
+  redirect("/");
 }
 
 /**

@@ -1,4 +1,6 @@
-import { signOut } from "@/lib/auth";
+import { redirect } from "next/navigation";
+
+import { clearSession } from "@/lib/session";
 import { Button } from "@/components/ui/button";
 
 export function SignOutButton({ label = "Sign out" }: { label?: string }) {
@@ -6,7 +8,8 @@ export function SignOutButton({ label = "Sign out" }: { label?: string }) {
     <form
       action={async () => {
         "use server";
-        await signOut({ redirectTo: "/" });
+        await clearSession();
+        redirect("/");
       }}
     >
       <Button type="submit" variant="ghost" size="sm">

@@ -1,3 +1,5 @@
+import { headers as nextHeaders } from "next/headers";
+
 import { getToken } from "@/lib/session";
 import type {
   ProductDTO,
@@ -10,6 +12,19 @@ const API_URL = process.env.API_URL ?? "http://localhost:4000/api";
 
 type Result<T> = { ok: true; data: T } | { ok: false; status: number; error: string };
 
+/**
+ * Every request this app makes to the API arrives from this server's single
+ * IP, so the API's own per-IP rate limiting would otherwise see one shared
+ * identity for every admin using this app. Forward the real caller's IP so
+ * the API can throttle per person — matters most for login attempts.
+ */
+async function visitorIp(): Promise<string | undefined> {
+  const h = await nextHeaders();
+  const forwarded = h.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0]?.trim();
+  return h.get("x-real-ip")?.trim();
+}
+
 async function request<T>(
   path: string,
   init: RequestInit & { auth?: boolean } = {},
@@ -21,6 +36,8 @@ async function request<T>(
     const token = await getToken();
     if (token) headers.set("authorization", `Bearer ${token}`);
   }
+  const ip = await visitorIp();
+  if (ip) headers.set("x-forwarded-for", ip);
 
   let res: Response;
   try {
