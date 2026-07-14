@@ -7,6 +7,7 @@ import type {
   AuthUserDTO,
   HeroSlideDTO,
   PromoTileDTO,
+  MyOrderListItemDTO,
 } from "@gin/contracts";
 
 // Server-side client for the GIN API. Runs in Server Components / route handlers
@@ -203,6 +204,15 @@ export async function apiGetOrder(
   return apiGet<OrderDTO>(
     `/orders/${encodeURIComponent(orderNumber)}${qs({ cartToken })}`,
     { revalidate: 0, sessionToken },
+  );
+}
+
+/** A signed-in customer's own order history. Requires a session token. */
+export async function apiGetMyOrders(
+  sessionToken: string,
+): Promise<MyOrderListItemDTO[]> {
+  return (
+    (await apiGet<MyOrderListItemDTO[]>("/orders", { revalidate: 0, sessionToken })) ?? []
   );
 }
 

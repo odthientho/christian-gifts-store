@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { getOwnedOrder } from "@/lib/orders";
 import { formatCents } from "@/lib/money";
-import { getDictionary } from "@/lib/i18n";
+import { getDictionary, interpolate } from "@/lib/i18n";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -46,8 +46,25 @@ export default async function CheckoutSuccessPage({
         <div className="mt-8 rounded-lg border p-6 text-left">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">{dict.success.order}</span>
-            <span className="font-mono">{order.orderNumber}</span>
+            <span className="flex items-center gap-2">
+              <span className="font-mono">{order.orderNumber}</span>
+              <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium">
+                {order.status}
+              </span>
+            </span>
           </div>
+
+          {order.trackingNumber && (
+            <div className="mt-3 rounded-md bg-accent/50 p-3 text-sm">
+              {order.carrier && (
+                <p>{interpolate(dict.success.shippedVia, { carrier: order.carrier })}</p>
+              )}
+              <p className="mt-0.5 text-muted-foreground">
+                {dict.success.trackingNumber}:{" "}
+                <span className="font-mono text-foreground">{order.trackingNumber}</span>
+              </p>
+            </div>
+          )}
 
           <ul className="mt-4 space-y-2 text-sm">
             {order.items.map((item) => (

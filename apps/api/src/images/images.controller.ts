@@ -37,6 +37,12 @@ export class ImagesController {
     // Uploaded images are immutable (a new upload gets a new id), so this is
     // safe to cache hard.
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    // helmet's global default (same-origin) is right for JSON responses, but
+    // this route exists specifically to be embedded in <img> tags on the
+    // storefront (:3000) and admin (:3001) — a different origin than the API
+    // (:4000). Without this override the browser silently refuses to render
+    // the image.
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     res.send(image.data);
   }
 }

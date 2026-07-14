@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { apiCategories } from "@/lib/api";
 import { DeleteCategoryButton } from "@/components/delete-category-button";
+import { toAbsoluteImageUrl } from "@/lib/image-url";
 
 export default async function CategoriesPage() {
   const categories = await apiCategories();
@@ -35,7 +36,7 @@ export default async function CategoriesPage() {
                   {c.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={c.imageUrl}
+                      src={toAbsoluteImageUrl(c.imageUrl)}
                       alt=""
                       className="size-10 rounded-md object-cover"
                     />

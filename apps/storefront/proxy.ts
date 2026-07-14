@@ -19,8 +19,10 @@ export function proxy(request: NextRequest) {
     // at runtime that a nonce cannot cover. Style injection is a far weaker
     // vector than script injection, and script-src stays strict.
     `style-src 'self' 'unsafe-inline'`,
-    // Product images may be hosted anywhere the admin points them.
-    `img-src 'self' blob: data: https:`,
+    // Product images may be hosted anywhere the admin points them. In dev the
+    // API itself serves uploaded images over plain http (localhost:4000), so
+    // http: is allowed only there — production traffic to the API is https.
+    `img-src 'self' blob: data: https:${isDev ? " http:" : ""}`,
     `font-src 'self' data:`,
     `connect-src 'self'`,
     // Stripe Checkout is a top-level redirect, never framed.

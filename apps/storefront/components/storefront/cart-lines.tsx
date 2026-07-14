@@ -10,6 +10,7 @@ import type { CartLine } from "@/lib/cart";
 import { formatCents } from "@/lib/money";
 import { updateCartItemAction } from "@/server/cart";
 import { Button } from "@/components/ui/button";
+import { toAbsoluteImageUrl } from "@/lib/image-url";
 
 export function CartLines({
   lines,
@@ -47,7 +48,7 @@ export function CartLines({
             {line.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={line.imageUrl}
+                src={toAbsoluteImageUrl(line.imageUrl)}
                 alt=""
                 className="size-full object-cover"
               />

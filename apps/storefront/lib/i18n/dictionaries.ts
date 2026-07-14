@@ -22,6 +22,7 @@ const en = {
     search: "Search",
     allBooks: "All books",
     allGifts: "All gifts",
+    myOrders: "My orders",
   },
   home: {
     badge: "Handmade gifts & carefully chosen books",
@@ -133,6 +134,20 @@ const en = {
     notFound:
       "We could not find that order. If you have just paid, check the receipt in your email — the confirmation link there will open it.",
     continue: "Continue shopping",
+    shippedVia: "Shipped via {carrier}",
+    trackingNumber: "Tracking number",
+  },
+  myOrders: {
+    title: "My orders",
+    empty: "You haven't placed any orders yet.",
+    browse: "Browse the catalog",
+    order: "Order",
+    status: "Status",
+    total: "Total",
+    placed: "Placed",
+    view: "View",
+    item: "item",
+    items: "items",
   },
   auth: {
     signInTitle: "Sign in",
@@ -201,6 +216,7 @@ const vi: Dictionary = {
     search: "Tìm kiếm",
     allBooks: "Tất cả sách",
     allGifts: "Tất cả quà tặng",
+    myOrders: "Đơn hàng của tôi",
   },
   home: {
     badge: "Quà thủ công & sách tuyển chọn",
@@ -313,6 +329,20 @@ const vi: Dictionary = {
     notFound:
       "Chúng tôi không tìm thấy đơn hàng đó. Nếu bạn vừa thanh toán, hãy kiểm tra biên nhận trong email — liên kết xác nhận ở đó sẽ mở đơn hàng.",
     continue: "Tiếp tục mua sắm",
+    shippedVia: "Đã gửi qua {carrier}",
+    trackingNumber: "Mã vận đơn",
+  },
+  myOrders: {
+    title: "Đơn hàng của tôi",
+    empty: "Bạn chưa đặt đơn hàng nào.",
+    browse: "Xem danh mục sản phẩm",
+    order: "Đơn hàng",
+    status: "Trạng thái",
+    total: "Tổng cộng",
+    placed: "Ngày đặt",
+    view: "Xem",
+    item: "sản phẩm",
+    items: "sản phẩm",
   },
   auth: {
     signInTitle: "Đăng nhập",

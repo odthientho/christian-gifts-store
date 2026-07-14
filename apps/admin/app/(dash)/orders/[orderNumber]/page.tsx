@@ -45,7 +45,12 @@ export default async function OrderDetailPage({
       <div className="grid gap-6 sm:grid-cols-2">
         <div className="rounded-xl border bg-white p-5">
           <h2 className="text-sm font-semibold text-neutral-500">Status</h2>
-          <StatusForm orderNumber={order.orderNumber} status={order.status} />
+          <StatusForm
+            orderNumber={order.orderNumber}
+            status={order.status}
+            carrier={order.carrier}
+            trackingNumber={order.trackingNumber}
+          />
         </div>
 
         <div className="rounded-xl border bg-white p-5">

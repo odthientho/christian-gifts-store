@@ -6,12 +6,16 @@
 
 // The API consumes this client through the @gin/db package.
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  // Powers accent-insensitive product search — "kinh thanh" matches "Kinh
+  // Thánh" — without maintaining a duplicate normalized column.
+  extensions = [unaccent]
 }
 
 // ---------------------------------------------------------------------------
@@ -245,6 +249,8 @@ enum OrderStatus {
   PENDING
   PAID
   FULFILLED
+  SHIPPED
+  DELIVERED
   CANCELLED
   REFUNDED
 }
@@ -278,6 +284,11 @@ model Order {
   shippingState   String?
   shippingPostal  String?
   shippingCountry String?
+
+  // Set together when an admin marks an order SHIPPED. Bookkeeping only, like
+  // status itself — nothing here calls a carrier API.
+  carrier        String?
+  trackingNumber String?
 
   // Set when fulfilment could not reserve stock — the payment succeeded but
   // there was not enough inventory left. A human has to refund or restock.

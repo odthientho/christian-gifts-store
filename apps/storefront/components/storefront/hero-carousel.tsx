@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 
 import type { Locale } from "@/lib/i18n/config";
 import { cn } from "@/lib/utils";
+import { toAbsoluteImageUrl } from "@/lib/image-url";
 import type { HeroSlideDTO } from "@gin/contracts";
 
 // Fallback scripture slides, used only when the admin hasn't configured any
@@ -39,13 +40,6 @@ const FALLBACK_SLIDES = [
   },
 ];
 
-const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
-
-function toAbsolute(url: string): string {
-  if (/^https?:\/\//.test(url)) return url;
-  return `${API_ORIGIN}${url}`;
-}
-
 type Slide = {
   ref: string;
   text: string;
@@ -71,7 +65,7 @@ export function HeroCarousel({
       return apiSlides.map((s) => ({
         ref: locale === "vi" ? s.verseRefVi : s.verseRefEn,
         text: locale === "vi" ? s.textVi : s.textEn,
-        photo: s.imageUrl ? toAbsolute(s.imageUrl) : null,
+        photo: s.imageUrl ? toAbsoluteImageUrl(s.imageUrl) : null,
       }));
     }
     return FALLBACK_SLIDES.map((s, i) => ({

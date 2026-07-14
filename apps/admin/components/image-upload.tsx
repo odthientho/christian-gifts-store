@@ -3,14 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 
 import { uploadImageAction } from "@/server/actions";
-
-const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
-
-/** `/images/xyz` (what the API returns) -> an absolute, browser-loadable URL. */
-function toAbsolute(url: string): string {
-  if (/^https?:\/\//.test(url)) return url;
-  return `${API_ORIGIN}${url}`;
-}
+import { toAbsoluteImageUrl } from "@/lib/image-url";
 
 /**
  * A file input that uploads immediately on selection and writes the resulting
@@ -56,7 +49,7 @@ export function ImageUpload({
         <div className="flex size-20 items-center justify-center overflow-hidden rounded-lg border bg-neutral-50">
           {url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={toAbsolute(url)} alt="" className="size-full object-cover" />
+            <img src={toAbsoluteImageUrl(url)} alt="" className="size-full object-cover" />
           ) : (
             <span className="text-xs text-neutral-400">No image</span>
           )}

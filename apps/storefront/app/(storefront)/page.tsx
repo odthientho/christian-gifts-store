@@ -9,15 +9,11 @@ import {
 import { getDictionary, getLocale } from "@/lib/i18n";
 import { heroImages, promoImage } from "@/lib/site-images";
 import { apiGetHeroSlides, apiGetPromoTiles } from "@/lib/api-client";
+import { toAbsoluteImageUrl } from "@/lib/image-url";
 import { ProductCard } from "@/components/storefront/product-card";
 import { HeroCarousel } from "@/components/storefront/hero-carousel";
 import { SectionHeading } from "@/components/storefront/section-heading";
 import { CategoryShowcase } from "@/components/storefront/category-showcase";
-
-const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
-function toAbsolute(url: string): string {
-  return /^https?:\/\//.test(url) ? url : `${API_ORIGIN}${url}`;
-}
 
 const PROMO_GRADIENTS = [
   "linear-gradient(140deg, oklch(0.62 0.19 28), oklch(0.7 0.15 45))",
@@ -58,7 +54,7 @@ export default async function HomePage() {
                 href={t.href}
                 label={locale === "vi" ? t.labelVi : t.labelEn}
                 icon={<Gift className="size-6" strokeWidth={1.5} />}
-                image={t.imageUrl ? toAbsolute(t.imageUrl) : null}
+                image={t.imageUrl ? toAbsoluteImageUrl(t.imageUrl) : null}
                 gradient={PROMO_GRADIENTS[i % PROMO_GRADIENTS.length]}
               />
             ))
