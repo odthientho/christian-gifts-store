@@ -5,11 +5,13 @@ import { ProductCard, type CardProduct } from "@/components/storefront/product-c
 import { SectionHeading } from "@/components/storefront/section-heading";
 import { translateCategory, type Dictionary } from "@/lib/i18n";
 import { bannerImage } from "@/lib/site-images";
+import { toAbsoluteImageUrl } from "@/lib/image-url";
 
 export type Showcase = {
   id: string;
   slug: string;
   name: string;
+  imageUrl: string | null;
   type: "BOOK" | "GIFT";
   products: CardProduct[];
 };
@@ -42,9 +44,11 @@ export function CategoryShowcase({
   const label = translateCategory(dict, showcase.slug, showcase.name);
   const Icon = showcase.type === "BOOK" ? BookOpen : Gift;
 
-  // A photo in /public/img/banners/<slug>.jpg sits under a dark tint; otherwise
-  // the cycling gradient placeholder.
-  const photo = bannerImage(showcase.slug);
+  // An admin-uploaded category photo wins; otherwise a static photo dropped
+  // into /public/img/banners/<slug>.jpg; otherwise the cycling gradient.
+  const photo = showcase.imageUrl
+    ? toAbsoluteImageUrl(showcase.imageUrl)
+    : bannerImage(showcase.slug);
   const bannerBg = photo
     ? `linear-gradient(150deg, oklch(0.28 0.05 265 / 0.72), oklch(0.35 0.06 250 / 0.55)), url(${photo})`
     : BANNER_GRADIENTS[index % BANNER_GRADIENTS.length];
