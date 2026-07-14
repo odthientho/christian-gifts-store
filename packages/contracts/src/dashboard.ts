@@ -33,6 +33,17 @@ export type DashboardSummaryDTO = {
   // online payment disabled this is the normal state right after checkout,
   // not an error; an admin needs to see it to know who to contact.
   pendingPaymentCount: number;
+  // Sum of totalCents across those PENDING orders — the actual dollar amount
+  // sitting uncollected, not just a count.
+  pendingPaymentTotalCents: number;
+  // Hours since the oldest still-PENDING order was placed. Null when there
+  // are none. Lets the UI flag "this has been sitting for 3 days" rather than
+  // treating a 10-minute-old order and a 2-week-old one identically.
+  oldestPendingAgeHours: number | null;
+  // Revenue-recognized sales in the last 7 days — the raw figure behind
+  // salesChangePct, so the UI can build a one-line "this week" summary
+  // without re-deriving it from the % change.
+  salesLast7DaysCents: number;
   // Every order status, in lifecycle order, zero-filled — a funnel view, not
   // just whatever happens to be in the 5 most recent orders.
   statusBreakdown: OrderStatusCountDTO[];

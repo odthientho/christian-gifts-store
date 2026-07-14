@@ -484,7 +484,8 @@ export class OrdersService {
       salesAgg,
       totalOrders,
       ordersNeedingReview,
-      pendingPaymentCount,
+      pendingPaymentAgg,
+      oldestPending,
       thisWeekAgg,
       priorWeekAgg,
       statusGroups,
@@ -503,7 +504,21 @@ export class OrdersService {
           where: { status: { in: [...REVENUE_STATUSES, "REFUNDED"] } },
         }),
         prisma.order.count({ where: { needsReview: true } }),
-        prisma.order.count({ where: { status: "PENDING" } }),
+        // Count and dollar total in one shot — "3 orders" doesn't tell an
+        // owner whether that's $30 or $3,000 sitting uncollected.
+        prisma.order.aggregate({
+          where: { status: "PENDING" },
+          _sum: { totalCents: true },
+          _count: true,
+        }),
+        // How long the oldest unpaid order has been waiting — an order stuck
+        // for 10 minutes and one stuck for 2 weeks look identical as a bare
+        // count, but the second one is a customer we're about to lose.
+        prisma.order.findFirst({
+          where: { status: "PENDING" },
+          orderBy: { createdAt: "asc" },
+          select: { createdAt: true },
+        }),
         // Week-over-week comparison: this metric is meaningless without a
         // baseline (a bare "$X in sales" doesn't say whether that's growth or
         // decline), so both windows are fetched to compute a % change.
@@ -545,6 +560,13 @@ export class OrdersService {
           select: { slug: true, title: true, stock: true },
         }),
       ]);
+
+    const pendingPaymentCount = pendingPaymentAgg._count;
+    const pendingPaymentTotalCents = pendingPaymentAgg._sum.totalCents ?? 0;
+    const oldestPendingAgeHours = oldestPending
+      ? Math.round((now.getTime() - oldestPending.createdAt.getTime()) / 3_600_000)
+      : null;
+    const salesLast7DaysCents = thisWeekAgg._sum.totalCents ?? 0;
 
     const totalSalesCents = salesAgg._sum.totalCents ?? 0;
     const revenueOrderCount = salesAgg._count;
@@ -615,6 +637,9 @@ export class OrdersService {
       returningCustomerCount,
       ordersNeedingReview,
       pendingPaymentCount,
+      pendingPaymentTotalCents,
+      oldestPendingAgeHours,
+      salesLast7DaysCents,
       statusBreakdown,
       revenueByDay,
       topCategories,

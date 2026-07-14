@@ -26,6 +26,17 @@ const STATUS_STYLES: Record<string, string> = {
   REFUNDED: "bg-amber-100 text-amber-700",
 };
 
+// Past this, a still-unpaid order stops being "the normal lag right after
+// checkout" and starts being "we might be about to lose this customer."
+const OVERDUE_HOURS = 48;
+
+function formatAge(hours: number): string {
+  if (hours < 1) return "less than an hour ago";
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
 export default async function DashboardPage() {
   const summary = await apiAdminDashboard();
 
@@ -33,20 +44,60 @@ export default async function DashboardPage() {
     return <p className="text-sm text-red-600">Could not load dashboard data.</p>;
   }
 
+  const pendingOverdue =
+    summary.oldestPendingAgeHours !== null && summary.oldestPendingAgeHours >= OVERDUE_HOURS;
+
   const alerts = [
     summary.pendingPaymentCount > 0 && {
       key: "pending",
       icon: Clock,
-      text: `${summary.pendingPaymentCount} order${summary.pendingPaymentCount === 1 ? "" : "s"} awaiting payment — contact the customer to collect payment and fulfil.`,
+      urgent: pendingOverdue,
+      text: `${summary.pendingPaymentCount} order${summary.pendingPaymentCount === 1 ? "" : "s"} awaiting payment (${formatCents(summary.pendingPaymentTotalCents)})${
+        summary.oldestPendingAgeHours !== null
+          ? ` — oldest placed ${formatAge(summary.oldestPendingAgeHours)}`
+          : ""
+      }. Contact the customer to collect payment and fulfil.`,
       href: "/orders?status=PENDING",
     },
     summary.ordersNeedingReview > 0 && {
       key: "review",
       icon: AlertTriangle,
+      urgent: true,
       text: `${summary.ordersNeedingReview} order${summary.ordersNeedingReview === 1 ? "" : "s"} need review — paid but short on stock.`,
       href: "/orders",
     },
   ].filter((a): a is Exclude<typeof a, false> => a !== false);
+
+  const anyUrgent = alerts.some((a) => a.urgent);
+  const panelTone = anyUrgent
+    ? {
+        border: "border-red-200",
+        bg: "bg-red-50",
+        heading: "text-red-700",
+        text: "text-red-800",
+        hover: "hover:bg-red-100",
+      }
+    : {
+        border: "border-amber-200",
+        bg: "bg-amber-50",
+        heading: "text-amber-700",
+        text: "text-amber-800",
+        hover: "hover:bg-amber-100",
+      };
+
+  // One sentence, before anything else — the answer to "how's the business
+  // doing today?" shouldn't require reading four KPI cards and two tables.
+  const summaryLine = [
+    `This week: ${formatCents(summary.salesLast7DaysCents)} in sales`,
+    summary.salesChangePct !== null
+      ? `(${summary.salesChangePct > 0 ? "+" : ""}${summary.salesChangePct}% vs. last week)`
+      : null,
+    alerts.length > 0
+      ? `· ${alerts.length} thing${alerts.length === 1 ? "" : "s"} need${alerts.length === 1 ? "s" : ""} your attention`
+      : "· nothing needs your attention right now",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className="space-y-6">
@@ -61,17 +112,21 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
+      <p className="text-sm text-neutral-600">{summaryLine}</p>
+
       {alerts.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-amber-200 bg-amber-50">
-          <p className="border-b border-amber-200 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-amber-700">
+        <div className={`overflow-hidden rounded-xl border ${panelTone.border} ${panelTone.bg}`}>
+          <p
+            className={`border-b ${panelTone.border} px-5 py-2 text-xs font-semibold uppercase tracking-wide ${panelTone.heading}`}
+          >
             Needs attention
           </p>
-          <ul className="divide-y divide-amber-200">
+          <ul className={`divide-y ${panelTone.border}`}>
             {alerts.map((a) => (
               <li key={a.key}>
                 <Link
                   href={a.href}
-                  className="flex items-center justify-between gap-4 px-5 py-3 text-sm text-amber-800 transition-colors hover:bg-amber-100"
+                  className={`flex items-center justify-between gap-4 px-5 py-3 text-sm ${panelTone.text} transition-colors ${panelTone.hover}`}
                 >
                   <span className="flex items-center gap-2.5">
                     <a.icon className="size-4 shrink-0" strokeWidth={2} />
