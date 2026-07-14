@@ -14,9 +14,13 @@ import {
   productQuerySchema,
   createProductSchema,
   updateProductSchema,
+  createCategorySchema,
+  updateCategorySchema,
   type ProductQuery,
   type CreateProductInput,
   type UpdateProductInput,
+  type CreateCategoryInput,
+  type UpdateCategoryInput,
 } from "@gin/contracts";
 
 import { ProductsService } from "./products.service.js";
@@ -87,5 +91,41 @@ export class ProductsController {
   @HttpCode(204)
   async remove(@Param("slug") slug: string) {
     await this.products.remove(slug);
+  }
+
+  // --- Admin: categories (guarded) -------------------------------------------
+
+  @Get("admin/categories")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("ADMIN")
+  listAllCategories() {
+    return this.products.listAllCategories();
+  }
+
+  @Post("admin/categories")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("ADMIN")
+  createCategory(
+    @Body(new ZodValidationPipe(createCategorySchema)) body: CreateCategoryInput,
+  ) {
+    return this.products.createCategory(body);
+  }
+
+  @Patch("admin/categories/:slug")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("ADMIN")
+  updateCategory(
+    @Param("slug") slug: string,
+    @Body(new ZodValidationPipe(updateCategorySchema)) body: UpdateCategoryInput,
+  ) {
+    return this.products.updateCategory(slug, body);
+  }
+
+  @Delete("admin/categories/:slug")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("ADMIN")
+  @HttpCode(204)
+  async removeCategory(@Param("slug") slug: string) {
+    await this.products.removeCategory(slug);
   }
 }

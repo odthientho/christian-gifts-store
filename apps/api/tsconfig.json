@@ -9,7 +9,7 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "noEmit": true,
-    "types": ["node"],
+    "types": ["node", "multer"],
     "noUncheckedIndexedAccess": false
   },
   "include": ["src/**/*.ts"],

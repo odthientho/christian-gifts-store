@@ -11,6 +11,7 @@ export type CategoryDTO = {
   id: string;
   slug: string;
   name: string;
+  imageUrl: string | null;
 };
 
 export type ProductDTO = {
@@ -81,3 +82,15 @@ export const productQuerySchema = z.object({
 });
 
 export type ProductQuery = z.infer<typeof productQuerySchema>;
+
+export const createCategorySchema = z.object({
+  slug,
+  name: z.string().trim().min(1).max(120),
+  imageUrl: z.string().trim().max(2048).nullish(),
+});
+export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
+
+export const updateCategorySchema = createCategorySchema.partial().extend({
+  slug: slug.optional(),
+});
+export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;

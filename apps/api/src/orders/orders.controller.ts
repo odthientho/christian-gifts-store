@@ -8,19 +8,31 @@ import {
   Req,
   Headers,
   HttpCode,
+  UseGuards,
   BadRequestException,
 } from "@nestjs/common";
 import type { RawBodyRequest } from "@nestjs/common";
 import type { Request } from "express";
 import type Stripe from "stripe";
 import { Throttle } from "@nestjs/throttler";
-import { checkoutSchema, type CheckoutInput } from "@gin/contracts";
+import {
+  checkoutSchema,
+  updateOrderStatusSchema,
+  type CheckoutInput,
+  type UpdateOrderStatusInput,
+  type JwtClaims,
+} from "@gin/contracts";
 
 import { OrdersService } from "./orders.service.js";
 import { StripeService } from "./stripe.service.js";
 import { ZodValidationPipe } from "../common/zod-validation.pipe.js";
+import { OptionalJwtGuard, JwtAuthGuard, RolesGuard, Roles, CurrentUser } from "../auth/guards.js";
 
+// Optional auth on the whole controller: checkout and order lookup both work
+// for a guest, and both prefer the caller's identity when signed in. The
+// webhook route ignores this entirely — Stripe never sends a bearer token.
 @Controller()
+@UseGuards(OptionalJwtGuard)
 export class OrdersController {
   constructor(
     private readonly orders: OrdersService,
@@ -32,22 +44,50 @@ export class OrdersController {
   @Post("checkout")
   @Throttle({ default: { ttl: 600_000, limit: 20 } })
   async checkout(
+    @CurrentUser() user: JwtClaims | undefined,
     @Body(new ZodValidationPipe(checkoutSchema)) body: CheckoutInput,
     @Headers("origin") origin?: string,
   ) {
     const siteUrl =
       process.env.STOREFRONT_URL ?? origin ?? "http://localhost:3000";
-    return this.orders.createCheckout(body.email, body.cartToken, siteUrl);
+    return this.orders.createCheckout(body.email, user?.sub, body.cartToken, siteUrl);
   }
 
   @Get("orders/:orderNumber")
   async getOrder(
+    @CurrentUser() user: JwtClaims | undefined,
     @Param("orderNumber") orderNumber: string,
     @Query("cartToken") cartToken?: string,
   ) {
     // Returns null (not 404) for both missing and unauthorized, so a guessed
     // order number cannot be distinguished from a real one.
-    return this.orders.getOwnedOrder(orderNumber, cartToken);
+    return this.orders.getOwnedOrder(orderNumber, user?.sub, cartToken);
+  }
+
+  // --- Admin -------------------------------------------------------------
+
+  @Get("admin/orders")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("ADMIN")
+  listAll() {
+    return this.orders.listAllOrders();
+  }
+
+  @Get("admin/orders/:orderNumber")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("ADMIN")
+  getForAdmin(@Param("orderNumber") orderNumber: string) {
+    return this.orders.getOrderForAdmin(orderNumber);
+  }
+
+  @Post("admin/orders/:orderNumber/status")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("ADMIN")
+  updateStatus(
+    @Param("orderNumber") orderNumber: string,
+    @Body(new ZodValidationPipe(updateOrderStatusSchema)) body: UpdateOrderStatusInput,
+  ) {
+    return this.orders.updateOrderStatus(orderNumber, body.status);
   }
 
   @Post("stripe/webhook")

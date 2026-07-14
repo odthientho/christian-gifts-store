@@ -14,7 +14,7 @@ type ProductRow = {
   stock: number;
   active: boolean;
   featured: boolean;
-  category: { id: string; slug: string; name: string } | null;
+  category: { id: string; slug: string; name: string; imageUrl: string | null } | null;
   bookDetail: {
     author: string;
     isbn: string | null;

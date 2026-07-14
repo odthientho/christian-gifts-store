@@ -1,8 +1,14 @@
-import { Injectable, BadRequestException } from "@nestjs/common";
+import { Injectable, BadRequestException, NotFoundException } from "@nestjs/common";
 import { randomBytes } from "node:crypto";
 import type Stripe from "stripe";
 import { prisma } from "@gin/db";
-import { shippingForSubtotal, type OrderDTO } from "@gin/contracts";
+import {
+  shippingForSubtotal,
+  type OrderDTO,
+  type AdminOrderDTO,
+  type AdminOrderListItemDTO,
+  type OrderStatusDTO,
+} from "@gin/contracts";
 
 import { StripeService } from "./stripe.service.js";
 
@@ -15,14 +21,17 @@ export class OrdersService {
   constructor(private readonly stripe: StripeService) {}
 
   /**
-   * Turn a cart (by token) into a PENDING order and a Stripe Checkout Session.
-   * Line items and every total are read from the database — a price that arrived
-   * over the wire is never used. The order is written before Stripe is called so
-   * the webhook always has a row to reconcile against.
+   * Turn a cart into a PENDING order and a Stripe Checkout Session. `userId`,
+   * when the caller is signed in, wins over `cartToken` — same precedence as
+   * the cart endpoints. Line items and every total are read from the
+   * database — a price that arrived over the wire is never used. The order is
+   * written before Stripe is called so the webhook always has a row to
+   * reconcile against.
    */
   async createCheckout(
     email: string,
-    cartToken: string,
+    userId: string | undefined,
+    cartToken: string | undefined,
     siteUrl: string,
   ): Promise<{ url: string }> {
     if (!this.stripe.isConfigured()) {
@@ -31,10 +40,17 @@ export class OrdersService {
       );
     }
 
-    const cart = await prisma.cart.findUnique({
-      where: { guestToken: cartToken },
-      include: { items: { include: { product: true } } },
-    });
+    const cart = userId
+      ? await prisma.cart.findUnique({
+          where: { userId },
+          include: { items: { include: { product: true } } },
+        })
+      : cartToken
+        ? await prisma.cart.findUnique({
+            where: { guestToken: cartToken },
+            include: { items: { include: { product: true } } },
+          })
+        : null;
     const lines = (cart?.items ?? []).filter((i) => i.product.active);
     if (!cart || lines.length === 0) {
       throw new BadRequestException("Your cart is empty.");
@@ -60,6 +76,7 @@ export class OrdersService {
       data: {
         orderNumber: newOrderNumber(),
         cartId: cart.id,
+        userId: userId ?? null,
         email: email.toLowerCase(),
         status: "PENDING",
         subtotalCents,
@@ -140,6 +157,7 @@ export class OrdersService {
    */
   async getOwnedOrder(
     orderNumber: string,
+    userId: string | undefined,
     cartToken: string | undefined,
   ): Promise<OrderDTO | null> {
     const order = await prisma.order.findUnique({
@@ -148,6 +166,7 @@ export class OrdersService {
         orderNumber: true,
         status: true,
         totalCents: true,
+        userId: true,
         cartId: true,
         items: {
           select: {
@@ -161,20 +180,28 @@ export class OrdersService {
     });
     if (!order) return null;
 
+    const toDTO = (): OrderDTO => ({
+      orderNumber: order.orderNumber,
+      status: order.status,
+      totalCents: order.totalCents,
+      items: order.items,
+    });
+
+    // A signed-in caller owns any order placed under their account — this
+    // still works from a different device, or after the cart that created it
+    // is long gone.
+    if (userId && order.userId && order.userId === userId) return toDTO();
+
+    // Otherwise, entitlement means holding the guest-cart token the order was
+    // created from.
     if (order.cartId && cartToken) {
       const cart = await prisma.cart.findUnique({
         where: { guestToken: cartToken },
         select: { id: true },
       });
-      if (cart && cart.id === order.cartId) {
-        return {
-          orderNumber: order.orderNumber,
-          status: order.status,
-          totalCents: order.totalCents,
-          items: order.items,
-        };
-      }
+      if (cart && cart.id === order.cartId) return toDTO();
     }
+
     return null;
   }
 
@@ -274,6 +301,94 @@ export class OrdersService {
       data: { status: "REFUNDED" },
     });
   }
+
+  // --- Admin -----------------------------------------------------------------
+  // Full detail, no ownership check — the caller already passed RolesGuard.
+
+  async listAllOrders(): Promise<AdminOrderListItemDTO[]> {
+    const orders = await prisma.order.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+    return orders.map(toAdminListItem);
+  }
+
+  async getOrderForAdmin(orderNumber: string): Promise<AdminOrderDTO> {
+    const order = await prisma.order.findUnique({
+      where: { orderNumber },
+      include: {
+        items: {
+          select: { id: true, titleSnapshot: true, unitPriceCents: true, quantity: true },
+        },
+      },
+    });
+    if (!order) throw new NotFoundException("Order not found");
+    return { ...toAdminListItem(order), items: order.items };
+  }
+
+  /**
+   * Update an order's status. Internal bookkeeping only — this does not call
+   * Stripe. Marking REFUNDED here does not move money; process the actual
+   * refund in the Stripe dashboard (or a future admin action wired to Stripe's
+   * Refunds API) and use this to record that it happened.
+   */
+  async updateOrderStatus(
+    orderNumber: string,
+    status: OrderStatusDTO,
+  ): Promise<AdminOrderDTO> {
+    const existing = await prisma.order.findUnique({ where: { orderNumber } });
+    if (!existing) throw new NotFoundException("Order not found");
+
+    await prisma.order.update({ where: { orderNumber }, data: { status } });
+    return this.getOrderForAdmin(orderNumber);
+  }
+}
+
+function toAdminListItem(order: {
+  id: string;
+  orderNumber: string;
+  email: string;
+  status: OrderStatusDTO;
+  subtotalCents: number;
+  shippingCents: number;
+  taxCents: number;
+  totalCents: number;
+  needsReview: boolean;
+  shippingName: string | null;
+  shippingLine1: string | null;
+  shippingLine2: string | null;
+  shippingCity: string | null;
+  shippingState: string | null;
+  shippingPostal: string | null;
+  shippingCountry: string | null;
+  stripeSessionId: string | null;
+  stripePaymentIntentId: string | null;
+  paidAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}): AdminOrderListItemDTO {
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    email: order.email,
+    status: order.status,
+    subtotalCents: order.subtotalCents,
+    shippingCents: order.shippingCents,
+    taxCents: order.taxCents,
+    totalCents: order.totalCents,
+    needsReview: order.needsReview,
+    shippingName: order.shippingName,
+    shippingLine1: order.shippingLine1,
+    shippingLine2: order.shippingLine2,
+    shippingCity: order.shippingCity,
+    shippingState: order.shippingState,
+    shippingPostal: order.shippingPostal,
+    shippingCountry: order.shippingCountry,
+    stripeSessionId: order.stripeSessionId,
+    stripePaymentIntentId: order.stripePaymentIntentId,
+    paidAt: order.paidAt?.toISOString() ?? null,
+    createdAt: order.createdAt.toISOString(),
+    updatedAt: order.updatedAt.toISOString(),
+  };
 }
 
 function addressFrom(session: Stripe.Checkout.Session) {

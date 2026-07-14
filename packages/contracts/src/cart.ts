@@ -53,7 +53,9 @@ export const addToCartSchema = z.object({
 export type AddToCartInput = z.infer<typeof addToCartSchema>;
 
 export const updateCartItemSchema = z.object({
-  token: z.string().min(1).max(64),
+  // Optional: a signed-in caller identifies their cart via the Authorization
+  // header instead (see apps/api/src/cart). Only a guest needs to send one.
+  token: z.string().min(1).max(64).optional(),
   productId: z.string().min(1),
   quantity: z.number().int().min(0).max(99),
 });

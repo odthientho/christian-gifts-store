@@ -11,6 +11,8 @@ import {
   type ProductQuery,
   type CreateProductInput,
   type UpdateProductInput,
+  type CreateCategoryInput,
+  type UpdateCategoryInput,
 } from "@gin/contracts";
 
 import { toProductDTO, productInclude } from "./product.mapper.js";
@@ -77,12 +79,62 @@ export class ProductsService {
         ? { products: { some: { type, active: true } } }
         : undefined,
       orderBy: { name: "asc" },
-      select: { id: true, slug: true, name: true },
+      select: { id: true, slug: true, name: true, imageUrl: true },
     });
     return rows;
   }
 
-  // --- Admin ---------------------------------------------------------------
+  // --- Admin: categories -----------------------------------------------------
+  // Unlike `categories()` above, these are not filtered to categories that
+  // currently have active products — the admin needs to see and manage an
+  // empty category too.
+
+  async listAllCategories(): Promise<CategoryDTO[]> {
+    return prisma.category.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, slug: true, name: true, imageUrl: true },
+    });
+  }
+
+  async createCategory(input: CreateCategoryInput): Promise<CategoryDTO> {
+    try {
+      return await prisma.category.create({
+        data: { slug: input.slug, name: input.name, imageUrl: input.imageUrl ?? null },
+        select: { id: true, slug: true, name: true, imageUrl: true },
+      });
+    } catch (e) {
+      throw this.rethrowConflict(e, input.slug, "category");
+    }
+  }
+
+  async updateCategory(
+    slug: string,
+    input: UpdateCategoryInput,
+  ): Promise<CategoryDTO> {
+    const existing = await prisma.category.findUnique({ where: { slug } });
+    if (!existing) throw new NotFoundException("Category not found");
+    try {
+      return await prisma.category.update({
+        where: { slug },
+        data: { slug: input.slug, name: input.name, imageUrl: input.imageUrl },
+        select: { id: true, slug: true, name: true, imageUrl: true },
+      });
+    } catch (e) {
+      throw this.rethrowConflict(e, input.slug ?? slug, "category");
+    }
+  }
+
+  /**
+   * Delete a category. Its products are not deleted — `onDelete: SetNull` on
+   * Product.categoryId (see schema) just leaves them uncategorised.
+   */
+  async removeCategory(slug: string): Promise<void> {
+    const existing = await prisma.category.findUnique({ where: { slug } });
+    if (!existing) throw new NotFoundException("Category not found");
+    await prisma.category.delete({ where: { slug } });
+  }
+
+  // --- Admin: products ---------------------------------------------------
 
   async create(input: CreateProductInput): Promise<ProductDTO> {
     const categoryId = await this.resolveCategoryId(input.categorySlug);
@@ -168,14 +220,18 @@ export class ProductsService {
     return cat.id;
   }
 
-  private rethrowConflict(e: unknown, slug: string): Error {
+  private rethrowConflict(
+    e: unknown,
+    slug: string,
+    entity: "product" | "category" = "product",
+  ): Error {
     if (
       e &&
       typeof e === "object" &&
       "code" in e &&
       (e as { code: string }).code === "P2002"
     ) {
-      return new ConflictException(`A product with slug "${slug}" already exists`);
+      return new ConflictException(`A ${entity} with slug "${slug}" already exists`);
     }
     return e as Error;
   }

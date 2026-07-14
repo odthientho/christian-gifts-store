@@ -6,6 +6,8 @@ import { ProductsModule } from "./products/products.module.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { CartModule } from "./cart/cart.module.js";
 import { OrdersModule } from "./orders/orders.module.js";
+import { ImagesModule } from "./images/images.module.js";
+import { ContentModule } from "./content/content.module.js";
 import { ProxyAwareThrottlerGuard } from "./common/proxy-aware-throttler.guard.js";
 
 @Module({
@@ -17,6 +19,8 @@ import { ProxyAwareThrottlerGuard } from "./common/proxy-aware-throttler.guard.j
     ProductsModule,
     CartModule,
     OrdersModule,
+    ImagesModule,
+    ContentModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ProxyAwareThrottlerGuard }],
 })

@@ -11,7 +11,7 @@
     "emitDecoratorMetadata": true,
     "noEmit": false,
     "outDir": "dist",
-    "types": ["node"],
+    "types": ["node", "multer"],
     "noUncheckedIndexedAccess": false
   },
   "include": ["src/**/*.ts"],

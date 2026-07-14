@@ -20,9 +20,18 @@ export default async function DashLayout({
               Admin
             </span>
           </Link>
-          <nav className="flex-1 text-sm">
+          <nav className="flex flex-1 gap-5 text-sm">
             <Link href="/products" className="text-neutral-600 hover:text-primary">
               Products
+            </Link>
+            <Link href="/categories" className="text-neutral-600 hover:text-primary">
+              Categories
+            </Link>
+            <Link href="/orders" className="text-neutral-600 hover:text-primary">
+              Orders
+            </Link>
+            <Link href="/content" className="text-neutral-600 hover:text-primary">
+              Site content
             </Link>
           </nav>
           <span className="text-xs text-neutral-500">{admin.email}</span>
