@@ -12,6 +12,7 @@ import {
   type MyOrderListItemDTO,
   type CheckoutInput,
   type CheckoutResultDTO,
+  ORDER_STATUSES,
 } from "@gin/contracts";
 
 import { StripeService } from "./stripe.service.js";
@@ -473,11 +474,21 @@ export class OrdersService {
     since.setUTCHours(0, 0, 0, 0);
     since.setUTCDate(since.getUTCDate() - (REVENUE_HISTORY_DAYS - 1));
 
+    const now = new Date();
+    const weekAgo = new Date(now);
+    weekAgo.setUTCDate(weekAgo.getUTCDate() - 7);
+    const twoWeeksAgo = new Date(now);
+    twoWeeksAgo.setUTCDate(twoWeeksAgo.getUTCDate() - 14);
+
     const [
       salesAgg,
       totalOrders,
       ordersNeedingReview,
       pendingPaymentCount,
+      thisWeekAgg,
+      priorWeekAgg,
+      statusGroups,
+      customerEmails,
       recentOrders,
       ordersInRange,
       lineItems,
@@ -486,12 +497,34 @@ export class OrdersService {
         prisma.order.aggregate({
           where: { status: { in: REVENUE_STATUSES } },
           _sum: { totalCents: true },
+          _count: true,
         }),
         prisma.order.count({
           where: { status: { in: [...REVENUE_STATUSES, "REFUNDED"] } },
         }),
         prisma.order.count({ where: { needsReview: true } }),
         prisma.order.count({ where: { status: "PENDING" } }),
+        // Week-over-week comparison: this metric is meaningless without a
+        // baseline (a bare "$X in sales" doesn't say whether that's growth or
+        // decline), so both windows are fetched to compute a % change.
+        prisma.order.aggregate({
+          where: { status: { in: REVENUE_STATUSES }, createdAt: { gte: weekAgo, lt: now } },
+          _sum: { totalCents: true },
+          _count: true,
+        }),
+        prisma.order.aggregate({
+          where: {
+            status: { in: REVENUE_STATUSES },
+            createdAt: { gte: twoWeeksAgo, lt: weekAgo },
+          },
+          _sum: { totalCents: true },
+          _count: true,
+        }),
+        prisma.order.groupBy({ by: ["status"], _count: true }),
+        prisma.order.findMany({
+          where: { status: { in: REVENUE_STATUSES } },
+          select: { email: true },
+        }),
         prisma.order.findMany({ orderBy: { createdAt: "desc" }, take: 5 }),
         prisma.order.findMany({
           where: { status: { in: REVENUE_STATUSES }, createdAt: { gte: since } },
@@ -512,6 +545,39 @@ export class OrdersService {
           select: { slug: true, title: true, stock: true },
         }),
       ]);
+
+    const totalSalesCents = salesAgg._sum.totalCents ?? 0;
+    const revenueOrderCount = salesAgg._count;
+    const avgOrderValueCents =
+      revenueOrderCount > 0 ? Math.round(totalSalesCents / revenueOrderCount) : 0;
+
+    // A % change against a zero-order prior window is undefined, not "∞%" —
+    // surfaced as null so the UI can say "no prior data" instead of a bogus
+    // number.
+    const pctChange = (current: number, prior: number): number | null =>
+      prior === 0 ? null : Math.round(((current - prior) / prior) * 1000) / 10;
+    const salesChangePct = pctChange(
+      thisWeekAgg._sum.totalCents ?? 0,
+      priorWeekAgg._sum.totalCents ?? 0,
+    );
+    const ordersChangePct = pctChange(thisWeekAgg._count, priorWeekAgg._count);
+
+    const statusCounts = new Map(statusGroups.map((g) => [g.status, g._count]));
+    const statusBreakdown = ORDER_STATUSES.map((status) => ({
+      status,
+      count: statusCounts.get(status) ?? 0,
+    }));
+
+    const emailOrderCounts = new Map<string, number>();
+    for (const { email } of customerEmails) {
+      emailOrderCounts.set(email, (emailOrderCounts.get(email) ?? 0) + 1);
+    }
+    let newCustomerCount = 0;
+    let returningCustomerCount = 0;
+    for (const count of emailOrderCounts.values()) {
+      if (count > 1) returningCustomerCount++;
+      else newCustomerCount++;
+    }
 
     const byDay = new Map<string, number>();
     for (let i = 0; i < REVENUE_HISTORY_DAYS; i++) {
@@ -540,10 +606,16 @@ export class OrdersService {
       .slice(0, 5);
 
     return {
-      totalSalesCents: salesAgg._sum.totalCents ?? 0,
+      totalSalesCents,
       totalOrders,
+      avgOrderValueCents,
+      salesChangePct,
+      ordersChangePct,
+      newCustomerCount,
+      returningCustomerCount,
       ordersNeedingReview,
       pendingPaymentCount,
+      statusBreakdown,
       revenueByDay,
       topCategories,
       lowStockProducts,

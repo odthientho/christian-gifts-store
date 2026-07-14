@@ -50,7 +50,12 @@ export function CategoryDonut({ categories }: { categories: CategoryRevenueDTO[]
               />
               {c.name}
             </span>
-            <span className="tabular-nums text-neutral-500">{formatCents(c.totalCents)}</span>
+            <span className="tabular-nums text-neutral-500">
+              {formatCents(c.totalCents)}
+              <span className="ml-1.5 text-neutral-400">
+                ({Math.round((c.totalCents / total) * 100)}%)
+              </span>
+            </span>
           </li>
         ))}
       </ul>

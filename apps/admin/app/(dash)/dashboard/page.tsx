@@ -1,11 +1,20 @@
 import Link from "next/link";
-import { DollarSign, ShoppingCart, AlertTriangle, Clock } from "lucide-react";
+import {
+  DollarSign,
+  ShoppingCart,
+  Receipt,
+  Users,
+  AlertTriangle,
+  Clock,
+  BarChart3,
+} from "lucide-react";
 
 import { apiAdminDashboard } from "@/lib/api";
 import { formatCents } from "@gin/contracts";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { CategoryDonut } from "@/components/dashboard/category-donut";
+import { StatusBreakdown } from "@/components/dashboard/status-breakdown";
 
 const STATUS_STYLES: Record<string, string> = {
   PENDING: "bg-neutral-100 text-neutral-600",
@@ -24,23 +33,56 @@ export default async function DashboardPage() {
     return <p className="text-sm text-red-600">Could not load dashboard data.</p>;
   }
 
+  const alerts = [
+    summary.pendingPaymentCount > 0 && {
+      key: "pending",
+      icon: Clock,
+      text: `${summary.pendingPaymentCount} order${summary.pendingPaymentCount === 1 ? "" : "s"} awaiting payment — contact the customer to collect payment and fulfil.`,
+      href: "/orders?status=PENDING",
+    },
+    summary.ordersNeedingReview > 0 && {
+      key: "review",
+      icon: AlertTriangle,
+      text: `${summary.ordersNeedingReview} order${summary.ordersNeedingReview === 1 ? "" : "s"} need review — paid but short on stock.`,
+      href: "/orders",
+    },
+  ].filter((a): a is Exclude<typeof a, false> => a !== false);
+
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">Dashboard</h1>
-
-      {summary.pendingPaymentCount > 0 && (
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Dashboard</h1>
         <Link
-          href="/orders?status=PENDING"
-          className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-5 py-3.5 text-sm text-amber-800 transition-colors hover:bg-amber-100"
+          href="/reports"
+          className="flex items-center gap-1.5 text-sm text-primary hover:underline"
         >
-          <span className="flex items-center gap-2.5">
-            <Clock className="size-4" strokeWidth={2} />
-            {summary.pendingPaymentCount} order
-            {summary.pendingPaymentCount === 1 ? "" : "s"} awaiting payment —
-            contact the customer to collect payment and fulfil.
-          </span>
-          <span className="font-medium underline">Review orders →</span>
+          <BarChart3 className="size-4" strokeWidth={2} />
+          Full reports →
         </Link>
+      </div>
+
+      {alerts.length > 0 && (
+        <div className="overflow-hidden rounded-xl border border-amber-200 bg-amber-50">
+          <p className="border-b border-amber-200 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-amber-700">
+            Needs attention
+          </p>
+          <ul className="divide-y divide-amber-200">
+            {alerts.map((a) => (
+              <li key={a.key}>
+                <Link
+                  href={a.href}
+                  className="flex items-center justify-between gap-4 px-5 py-3 text-sm text-amber-800 transition-colors hover:bg-amber-100"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <a.icon className="size-4 shrink-0" strokeWidth={2} />
+                    {a.text}
+                  </span>
+                  <span className="shrink-0 font-medium underline">Review →</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -48,24 +90,27 @@ export default async function DashboardPage() {
           label="Total sales"
           value={formatCents(summary.totalSalesCents)}
           icon={DollarSign}
+          changePct={summary.salesChangePct}
         />
         <KpiCard
           label="Total orders"
           value={summary.totalOrders.toString()}
           icon={ShoppingCart}
           tone="neutral"
+          changePct={summary.ordersChangePct}
         />
         <KpiCard
-          label="Awaiting payment"
-          value={summary.pendingPaymentCount.toString()}
-          icon={Clock}
-          tone={summary.pendingPaymentCount > 0 ? "warning" : "neutral"}
+          label="Average order value"
+          value={formatCents(summary.avgOrderValueCents)}
+          icon={Receipt}
+          tone="neutral"
         />
         <KpiCard
-          label="Needs review"
-          value={summary.ordersNeedingReview.toString()}
-          icon={AlertTriangle}
-          tone={summary.ordersNeedingReview > 0 ? "warning" : "neutral"}
+          label="Customers"
+          value={(summary.newCustomerCount + summary.returningCustomerCount).toString()}
+          icon={Users}
+          tone="neutral"
+          caption={`${summary.newCustomerCount} new · ${summary.returningCustomerCount} returning`}
         />
       </div>
 
@@ -77,9 +122,15 @@ export default async function DashboardPage() {
           <RevenueChart days={summary.revenueByDay} />
         </div>
 
-        <div className="rounded-xl border bg-white p-5">
-          <h2 className="mb-4 text-sm font-semibold text-neutral-700">Top categories</h2>
-          <CategoryDonut categories={summary.topCategories} />
+        <div className="space-y-4">
+          <div className="rounded-xl border bg-white p-5">
+            <h2 className="mb-4 text-sm font-semibold text-neutral-700">Top categories</h2>
+            <CategoryDonut categories={summary.topCategories} />
+          </div>
+          <div className="rounded-xl border bg-white p-5">
+            <h2 className="mb-4 text-sm font-semibold text-neutral-700">Order status</h2>
+            <StatusBreakdown statuses={summary.statusBreakdown} />
+          </div>
         </div>
       </div>
 

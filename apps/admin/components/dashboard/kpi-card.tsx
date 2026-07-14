@@ -1,15 +1,28 @@
 import type { LucideIcon } from "lucide-react";
+import { ArrowUp, ArrowDown, Minus } from "lucide-react";
 
 export function KpiCard({
   label,
   value,
   icon: Icon,
   tone = "primary",
+  changePct,
+  changeCaption = "vs. prior 7 days",
+  caption,
 }: {
   label: string;
   value: string;
   icon: LucideIcon;
   tone?: "primary" | "neutral" | "warning";
+  // Week-over-week % change. `undefined` means "not applicable to this
+  // metric"; `null` means "applicable, but no prior-period data to compare
+  // against" — the two render differently so a missing baseline never gets
+  // silently misread as 0% (no) change.
+  changePct?: number | null;
+  changeCaption?: string;
+  // A plain sub-line instead of a trend — for metrics where a % change
+  // wouldn't mean anything (e.g. a count broken into two parts).
+  caption?: string;
 }) {
   const toneClasses = {
     primary: "bg-primary/10 text-primary",
@@ -26,6 +39,38 @@ export function KpiCard({
         </span>
       </div>
       <p className="mt-3 text-2xl font-semibold tabular-nums">{value}</p>
+
+      {changePct !== undefined && (
+        <p className="mt-1.5 flex items-center gap-1 text-xs">
+          {changePct === null ? (
+            <span className="text-neutral-400">Not enough data yet</span>
+          ) : (
+            <>
+              <span
+                className={`flex items-center gap-0.5 font-medium ${
+                  changePct > 0
+                    ? "text-emerald-600"
+                    : changePct < 0
+                      ? "text-red-600"
+                      : "text-neutral-500"
+                }`}
+              >
+                {changePct > 0 ? (
+                  <ArrowUp className="size-3" strokeWidth={2.5} />
+                ) : changePct < 0 ? (
+                  <ArrowDown className="size-3" strokeWidth={2.5} />
+                ) : (
+                  <Minus className="size-3" strokeWidth={2.5} />
+                )}
+                {Math.abs(changePct)}%
+              </span>
+              <span className="text-neutral-400">{changeCaption}</span>
+            </>
+          )}
+        </p>
+      )}
+
+      {caption && <p className="mt-1.5 text-xs text-neutral-400">{caption}</p>}
     </div>
   );
 }
