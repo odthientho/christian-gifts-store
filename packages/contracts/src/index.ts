@@ -9,3 +9,5 @@ export * from "./cart.js";
 export * from "./order.js";
 export * from "./content.js";
 export * from "./dashboard.js";
+export * from "./config.js";
+export * from "./reports.js";

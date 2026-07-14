@@ -10,6 +10,8 @@ import {
   type OrderStatusDTO,
   type DashboardSummaryDTO,
   type MyOrderListItemDTO,
+  type CheckoutInput,
+  type CheckoutResultDTO,
 } from "@gin/contracts";
 
 import { StripeService } from "./stripe.service.js";
@@ -18,6 +20,11 @@ import { LOW_STOCK_THRESHOLD } from "../products/products.service.js";
 function newOrderNumber(): string {
   return `GIN-${randomBytes(4).toString("hex").toUpperCase()}`;
 }
+
+// Online payment is off for now — Stripe is still fully wired up (below) so
+// it's a one-line flip to turn back on, but until then every order is placed
+// directly and an admin collects payment and confirms it manually.
+const PAYMENTS_ENABLED = process.env.PAYMENTS_ENABLED === "true";
 
 // Orders in these statuses represent money actually collected — used both for
 // the dashboard's revenue total and for attributing category/day revenue.
@@ -28,21 +35,30 @@ const REVENUE_HISTORY_DAYS = 14;
 export class OrdersService {
   constructor(private readonly stripe: StripeService) {}
 
+  /** Whether checkout collects real payment or just places the order. */
+  paymentsEnabled(): boolean {
+    return PAYMENTS_ENABLED;
+  }
+
   /**
-   * Turn a cart into a PENDING order and a Stripe Checkout Session. `userId`,
-   * when the caller is signed in, wins over `cartToken` — same precedence as
-   * the cart endpoints. Line items and every total are read from the
-   * database — a price that arrived over the wire is never used. The order is
-   * written before Stripe is called so the webhook always has a row to
-   * reconcile against.
+   * Turn a cart into an order. `userId`, when the caller is signed in, wins
+   * over `cartToken` — same precedence as the cart endpoints. Line items and
+   * every total are read from the database — a price that arrived over the
+   * wire is never used.
+   *
+   * With PAYMENTS_ENABLED, this also creates a Stripe Checkout Session and
+   * returns its URL; the order stays PENDING until the webhook confirms
+   * payment and reserves stock. Without it, the order is placed directly as
+   * PENDING with stock reserved immediately — there is no separate "payment
+   * succeeded" event to hook into when a human collects payment manually
+   * later, so the reservation has to happen at order-placement time instead.
    */
   async createCheckout(
-    email: string,
+    input: CheckoutInput,
     userId: string | undefined,
-    cartToken: string | undefined,
     siteUrl: string,
-  ): Promise<{ url: string }> {
-    if (!this.stripe.isConfigured()) {
+  ): Promise<CheckoutResultDTO> {
+    if (PAYMENTS_ENABLED && !this.stripe.isConfigured()) {
       throw new BadRequestException(
         "Payments are not configured. Add STRIPE_SECRET_KEY to enable checkout.",
       );
@@ -53,9 +69,9 @@ export class OrdersService {
           where: { userId },
           include: { items: { include: { product: true } } },
         })
-      : cartToken
+      : input.cartToken
         ? await prisma.cart.findUnique({
-            where: { guestToken: cartToken },
+            where: { guestToken: input.cartToken },
             include: { items: { include: { product: true } } },
           })
         : null;
@@ -80,17 +96,76 @@ export class OrdersService {
     const shippingCents = shippingForSubtotal(subtotalCents);
     const totalCents = subtotalCents + shippingCents;
 
+    const shippingFields = {
+      shippingName: input.name,
+      shippingPhone: input.phone,
+      shippingLine1: input.addressLine1,
+      shippingLine2: input.addressLine2 ?? null,
+      shippingCity: input.city,
+      shippingState: input.state,
+      shippingPostal: input.postalCode,
+      shippingCountry: input.country,
+    };
+
+    if (!PAYMENTS_ENABLED) {
+      const orderNumber = await prisma.$transaction(async (tx) => {
+        // Reserve stock now, conditionally: `stock >= quantity` makes the
+        // database arbitrate between two concurrent buyers of the last unit,
+        // the same guard the Stripe webhook uses after a real payment.
+        for (const line of lines) {
+          const reserved = await tx.product.updateMany({
+            where: { id: line.productId, stock: { gte: line.quantity } },
+            data: { stock: { decrement: line.quantity } },
+          });
+          if (reserved.count === 0) {
+            throw new BadRequestException(
+              `"${line.product.title}" only has ${line.product.stock} left in stock.`,
+            );
+          }
+        }
+
+        const created = await tx.order.create({
+          data: {
+            orderNumber: newOrderNumber(),
+            cartId: cart.id,
+            userId: userId ?? null,
+            email: input.email.toLowerCase(),
+            status: "PENDING",
+            subtotalCents,
+            shippingCents,
+            taxCents: 0,
+            totalCents,
+            ...shippingFields,
+            items: {
+              create: lines.map((l) => ({
+                productId: l.productId,
+                titleSnapshot: l.product.title,
+                unitPriceCents: l.product.priceCents,
+                quantity: l.quantity,
+              })),
+            },
+          },
+        });
+
+        await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+        return created.orderNumber;
+      });
+
+      return { url: null, orderNumber };
+    }
+
     const order = await prisma.order.create({
       data: {
         orderNumber: newOrderNumber(),
         cartId: cart.id,
         userId: userId ?? null,
-        email: email.toLowerCase(),
+        email: input.email.toLowerCase(),
         status: "PENDING",
         subtotalCents,
         shippingCents,
         taxCents: 0,
         totalCents,
+        ...shippingFields,
         items: {
           create: lines.map((l) => ({
             productId: l.productId,
@@ -144,7 +219,7 @@ export class OrdersService {
         where: { id: order.id },
         data: { stripeSessionId: session.id },
       });
-      return { url: session.url };
+      return { url: session.url, orderNumber: order.orderNumber };
     } catch (err) {
       // Don't leave a PENDING order pointing at a session that never existed.
       await prisma.order.update({
@@ -251,7 +326,6 @@ export class OrdersService {
           paidAt: new Date(),
           stripeSessionId: session.id,
           stripePaymentIntentId: paymentIntentId,
-          ...addressFrom(session),
         },
       });
 
@@ -384,6 +458,11 @@ export class OrdersService {
     }));
   }
 
+  /** Count of orders placed but not yet paid — cheap enough for a nav badge. */
+  async countPendingPayment(): Promise<number> {
+    return prisma.order.count({ where: { status: "PENDING" } });
+  }
+
   /**
    * Every figure here comes from real order/product rows. This app has no
    * visit or session tracking, so metrics like "visitors" or "conversion
@@ -394,8 +473,16 @@ export class OrdersService {
     since.setUTCHours(0, 0, 0, 0);
     since.setUTCDate(since.getUTCDate() - (REVENUE_HISTORY_DAYS - 1));
 
-    const [salesAgg, totalOrders, ordersNeedingReview, recentOrders, ordersInRange, lineItems, lowStockProducts] =
-      await Promise.all([
+    const [
+      salesAgg,
+      totalOrders,
+      ordersNeedingReview,
+      pendingPaymentCount,
+      recentOrders,
+      ordersInRange,
+      lineItems,
+      lowStockProducts,
+    ] = await Promise.all([
         prisma.order.aggregate({
           where: { status: { in: REVENUE_STATUSES } },
           _sum: { totalCents: true },
@@ -404,6 +491,7 @@ export class OrdersService {
           where: { status: { in: [...REVENUE_STATUSES, "REFUNDED"] } },
         }),
         prisma.order.count({ where: { needsReview: true } }),
+        prisma.order.count({ where: { status: "PENDING" } }),
         prisma.order.findMany({ orderBy: { createdAt: "desc" }, take: 5 }),
         prisma.order.findMany({
           where: { status: { in: REVENUE_STATUSES }, createdAt: { gte: since } },
@@ -455,6 +543,7 @@ export class OrdersService {
       totalSalesCents: salesAgg._sum.totalCents ?? 0,
       totalOrders,
       ordersNeedingReview,
+      pendingPaymentCount,
       revenueByDay,
       topCategories,
       lowStockProducts,
@@ -474,6 +563,7 @@ function toAdminListItem(order: {
   totalCents: number;
   needsReview: boolean;
   shippingName: string | null;
+  shippingPhone: string | null;
   shippingLine1: string | null;
   shippingLine2: string | null;
   shippingCity: string | null;
@@ -499,6 +589,7 @@ function toAdminListItem(order: {
     totalCents: order.totalCents,
     needsReview: order.needsReview,
     shippingName: order.shippingName,
+    shippingPhone: order.shippingPhone,
     shippingLine1: order.shippingLine1,
     shippingLine2: order.shippingLine2,
     shippingCity: order.shippingCity,
@@ -515,17 +606,3 @@ function toAdminListItem(order: {
   };
 }
 
-function addressFrom(session: Stripe.Checkout.Session) {
-  const details = session.customer_details;
-  const address = details?.address;
-  if (!address) return {};
-  return {
-    shippingName: details?.name ?? null,
-    shippingLine1: address.line1 ?? null,
-    shippingLine2: address.line2 ?? null,
-    shippingCity: address.city ?? null,
-    shippingState: address.state ?? null,
-    shippingPostal: address.postal_code ?? null,
-    shippingCountry: address.country ?? null,
-  };
-}

@@ -55,7 +55,21 @@ export default async function OrderDetailPage({
 
         <div className="rounded-xl border bg-white p-5">
           <h2 className="text-sm font-semibold text-neutral-500">Customer</h2>
-          <p className="mt-2 text-sm">{order.email}</p>
+          <p className="mt-2 text-sm">
+            <a href={`mailto:${order.email}`} className="text-primary hover:underline">
+              {order.email}
+            </a>
+          </p>
+          {order.shippingPhone && (
+            <p className="mt-1 text-sm">
+              <a
+                href={`tel:${order.shippingPhone}`}
+                className="text-primary hover:underline"
+              >
+                {order.shippingPhone}
+              </a>
+            </p>
+          )}
           {address.length > 0 && (
             <address className="mt-3 text-sm text-neutral-600 not-italic">
               {address.map((line, i) => (

@@ -11,6 +11,8 @@ import type {
   HeroSlideDTO,
   PromoTileDTO,
   DashboardSummaryDTO,
+  ReportsDTO,
+  SalesPeriodDTO,
 } from "@gin/contracts";
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000/api";
@@ -151,6 +153,15 @@ export async function apiAdminDashboard(): Promise<DashboardSummaryDTO | null> {
   return r.ok ? r.data : null;
 }
 
+export async function apiAdminReports(
+  period: SalesPeriodDTO,
+): Promise<ReportsDTO | null> {
+  const r = await request<ReportsDTO>(`/admin/reports?period=${period}`, {
+    auth: true,
+  });
+  return r.ok ? r.data : null;
+}
+
 // --- Orders (admin, authed) --------------------------------------------------
 
 export async function apiAdminOrders(): Promise<AdminOrderListItemDTO[]> {
@@ -161,6 +172,13 @@ export async function apiAdminOrders(): Promise<AdminOrderListItemDTO[]> {
 export async function apiAdminOrder(orderNumber: string): Promise<AdminOrderDTO | null> {
   const r = await request<AdminOrderDTO>(`/admin/orders/${orderNumber}`, { auth: true });
   return r.ok ? r.data : null;
+}
+
+export async function apiPendingPaymentCount(): Promise<number> {
+  const r = await request<{ count: number }>("/admin/orders/pending-count", {
+    auth: true,
+  });
+  return r.ok ? r.data.count : 0;
 }
 
 export function apiUpdateOrderStatus(

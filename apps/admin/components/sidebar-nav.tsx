@@ -8,6 +8,7 @@ import {
   Package,
   Tags,
   Image as ImageIcon,
+  BarChart3,
 } from "lucide-react";
 
 const ITEMS = [
@@ -16,15 +17,34 @@ const ITEMS = [
   { href: "/products", label: "Products", icon: Package },
   { href: "/categories", label: "Categories", icon: Tags },
   { href: "/content", label: "Site content", icon: ImageIcon },
+  { href: "/reports", label: "Reports", icon: BarChart3 },
 ];
 
-export function SidebarNav({ lowStockCount = 0 }: { lowStockCount?: number }) {
+export function SidebarNav({
+  lowStockCount = 0,
+  pendingPaymentCount = 0,
+}: {
+  lowStockCount?: number;
+  pendingPaymentCount?: number;
+}) {
   const pathname = usePathname();
+
+  const badges: Record<string, { count: number; title: string }> = {
+    "/products": {
+      count: lowStockCount,
+      title: `${lowStockCount} product${lowStockCount === 1 ? "" : "s"} low on stock`,
+    },
+    "/orders": {
+      count: pendingPaymentCount,
+      title: `${pendingPaymentCount} order${pendingPaymentCount === 1 ? "" : "s"} awaiting payment`,
+    },
+  };
 
   return (
     <nav className="flex flex-col gap-1 p-3">
       {ITEMS.map(({ href, label, icon: Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
+        const badge = badges[href];
         return (
           <Link
             key={href}
@@ -37,14 +57,14 @@ export function SidebarNav({ lowStockCount = 0 }: { lowStockCount?: number }) {
           >
             <Icon className="size-5" strokeWidth={1.75} />
             {label}
-            {href === "/products" && lowStockCount > 0 && (
+            {badge && badge.count > 0 && (
               <span
-                title={`${lowStockCount} product${lowStockCount === 1 ? "" : "s"} low on stock`}
+                title={badge.title}
                 className={`ml-auto grid size-5 place-items-center rounded-full text-[0.65rem] font-semibold tabular-nums ${
                   active ? "bg-white/25 text-white" : "bg-amber-100 text-amber-700"
                 }`}
               >
-                {lowStockCount}
+                {badge.count}
               </span>
             )}
           </Link>

@@ -278,6 +278,7 @@ model Order {
   stripePaymentIntentId String? @unique
 
   shippingName    String?
+  shippingPhone   String?
   shippingLine1   String?
   shippingLine2   String?
   shippingCity    String?

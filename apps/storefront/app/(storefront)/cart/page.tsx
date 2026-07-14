@@ -6,6 +6,7 @@ import { getCart, FREE_SHIPPING_THRESHOLD_CENTS } from "@/lib/cart";
 import { getCurrentUser } from "@/lib/auth";
 import { formatCents } from "@/lib/money";
 import { getDictionary, interpolate } from "@/lib/i18n";
+import { apiGetConfig } from "@/lib/api-client";
 import { CartLines } from "@/components/storefront/cart-lines";
 import { CheckoutForm } from "@/components/storefront/checkout-form";
 import { buttonVariants } from "@/components/ui/button";
@@ -18,14 +19,12 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function CartPage() {
-  const [cart, user, dict] = await Promise.all([
+  const [cart, user, dict, config] = await Promise.all([
     getCart(),
     getCurrentUser(),
     getDictionary(),
+    apiGetConfig(),
   ]);
-  // The API owns payment config now. Always offer checkout; if the API has no
-  // Stripe keys it returns a clear error the form surfaces on click.
-  const stripeReady = true;
 
   if (cart.lines.length === 0) {
     return (
@@ -141,13 +140,23 @@ export default async function CartPage() {
             <div className="mt-6">
               <CheckoutForm
                 defaultEmail={user?.email}
-                stripeReady={stripeReady}
+                paymentsEnabled={config.paymentsEnabled}
                 labels={{
                   emailLabel: dict.cart.emailLabel,
+                  nameLabel: dict.cart.nameLabel,
+                  phoneLabel: dict.cart.phoneLabel,
+                  addressLine1Label: dict.cart.addressLine1Label,
+                  addressLine2Label: dict.cart.addressLine2Label,
+                  cityLabel: dict.cart.cityLabel,
+                  stateLabel: dict.cart.stateLabel,
+                  postalCodeLabel: dict.cart.postalCodeLabel,
+                  countryLabel: dict.cart.countryLabel,
                   checkout: dict.cart.checkout,
                   redirecting: dict.cart.redirecting,
+                  placeOrder: dict.cart.placeOrder,
+                  placingOrder: dict.cart.placingOrder,
                   securePayment: dict.cart.securePayment,
-                  notConfigured: dict.cart.notConfigured,
+                  manualPaymentNotice: dict.cart.manualPaymentNotice,
                 }}
               />
             </div>

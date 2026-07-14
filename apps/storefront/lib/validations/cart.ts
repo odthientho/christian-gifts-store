@@ -14,9 +14,8 @@ export const updateCartItemSchema = z.object({
   quantity: z.number().int().min(0).max(99),
 });
 
-export const checkoutSchema = z.object({
-  email: z.email("Enter a valid email address"),
-});
+// Checkout's own schema (email, contact, and shipping fields) lives in
+// @gin/contracts and is shared with the API — no need to duplicate it here.
 
 export type AddToCartInput = z.infer<typeof addToCartSchema>;
 export type UpdateCartItemInput = z.infer<typeof updateCartItemSchema>;

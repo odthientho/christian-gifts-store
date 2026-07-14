@@ -11,15 +11,39 @@ export const ORDER_STATUSES = [
 ] as const;
 export type OrderStatusDTO = (typeof ORDER_STATUSES)[number];
 
-// Checkout takes an email and the caller's cart token — nothing about prices.
-// The API reads the cart from that token and recomputes every total. A
-// signed-in caller identifies their cart via the Authorization header instead
-// (see apps/api/src/orders) — cartToken is only required for a guest.
+// Checkout takes an email, the caller's cart token, and contact/shipping
+// details — nothing about prices. The API reads the cart from that token and
+// recomputes every total. A signed-in caller identifies their cart via the
+// Authorization header instead (see apps/api/src/orders) — cartToken is only
+// required for a guest.
+//
+// Name/phone/address are required even for a guest checkout: with online
+// payment disabled (see PAYMENTS_ENABLED in apps/api/src/orders), an order is
+// only actionable if a human can actually reach the buyer to collect payment
+// and ship it.
 export const checkoutSchema = z.object({
   email: z.email(),
   cartToken: z.string().min(1).max(64).optional(),
+  name: z.string().trim().min(1).max(200),
+  phone: z.string().trim().min(1).max(30),
+  addressLine1: z.string().trim().min(1).max(200),
+  addressLine2: z.string().trim().max(200).optional(),
+  city: z.string().trim().min(1).max(100),
+  state: z.string().trim().min(1).max(100),
+  postalCode: z.string().trim().min(1).max(20),
+  country: z.string().trim().min(1).max(100),
 });
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
+
+/**
+ * `url` is a Stripe Checkout URL to redirect to when online payment is
+ * enabled, or null when it isn't — the order is placed directly and the
+ * caller should go straight to the confirmation page for `orderNumber`.
+ */
+export type CheckoutResultDTO = {
+  url: string | null;
+  orderNumber: string;
+};
 
 export type OrderItemDTO = {
   id: string;
@@ -60,6 +84,7 @@ export type AdminOrderDTO = {
   totalCents: number;
   needsReview: boolean;
   shippingName: string | null;
+  shippingPhone: string | null;
   shippingLine1: string | null;
   shippingLine2: string | null;
   shippingCity: string | null;

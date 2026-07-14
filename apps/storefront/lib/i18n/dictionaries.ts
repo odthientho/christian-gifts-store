@@ -117,11 +117,21 @@ const en = {
     total: "Total",
     continue: "Continue shopping",
     emailLabel: "Email for your receipt",
+    nameLabel: "Full name",
+    phoneLabel: "Phone number",
+    addressLine1Label: "Address",
+    addressLine2Label: "Apartment, suite, etc.",
+    cityLabel: "City",
+    stateLabel: "State / Province",
+    postalCodeLabel: "Postal code",
+    countryLabel: "Country",
     checkout: "Checkout",
     redirecting: "Redirecting…",
+    placeOrder: "Place order",
+    placingOrder: "Placing order…",
     securePayment: "Secure payment by Stripe. Cards never touch our server.",
-    notConfigured:
-      "Payments are not configured. Add STRIPE_SECRET_KEY to .env to enable checkout.",
+    manualPaymentNotice:
+      "Online payment isn't available yet — place your order and our team will contact you to arrange payment and shipping.",
     remove: "Remove",
   },
   success: {
@@ -130,7 +140,7 @@ const en = {
     order: "Order",
     total: "Total",
     pending:
-      "Payment is still being confirmed. This page updates once Stripe notifies us — it does not affect your order.",
+      "Payment hasn't been collected yet. Our team will reach out at the phone number or email you provided to arrange payment and shipping.",
     notFound:
       "We could not find that order. If you have just paid, check the receipt in your email — the confirmation link there will open it.",
     continue: "Continue shopping",
@@ -310,12 +320,22 @@ const vi: Dictionary = {
     total: "Tổng cộng",
     continue: "Tiếp tục mua sắm",
     emailLabel: "Email để nhận biên nhận",
+    nameLabel: "Họ và tên",
+    phoneLabel: "Số điện thoại",
+    addressLine1Label: "Địa chỉ",
+    addressLine2Label: "Căn hộ, tầng, v.v.",
+    cityLabel: "Thành phố",
+    stateLabel: "Tỉnh / Bang",
+    postalCodeLabel: "Mã bưu điện",
+    countryLabel: "Quốc gia",
     checkout: "Thanh toán",
     redirecting: "Đang chuyển hướng…",
+    placeOrder: "Đặt hàng",
+    placingOrder: "Đang đặt hàng…",
     securePayment:
       "Thanh toán an toàn qua Stripe. Thẻ không bao giờ đi qua máy chủ của chúng tôi.",
-    notConfigured:
-      "Thanh toán chưa được cấu hình. Thêm STRIPE_SECRET_KEY vào .env để bật thanh toán.",
+    manualPaymentNotice:
+      "Thanh toán trực tuyến chưa khả dụng — hãy đặt hàng và đội ngũ của chúng tôi sẽ liên hệ để sắp xếp thanh toán và giao hàng.",
     remove: "Xóa",
   },
   success: {
@@ -325,7 +345,7 @@ const vi: Dictionary = {
     order: "Đơn hàng",
     total: "Tổng cộng",
     pending:
-      "Thanh toán vẫn đang được xác nhận. Trang này sẽ cập nhật khi Stripe thông báo — điều này không ảnh hưởng đến đơn hàng của bạn.",
+      "Thanh toán chưa được thu. Đội ngũ của chúng tôi sẽ liên hệ qua số điện thoại hoặc email bạn đã cung cấp để sắp xếp thanh toán và giao hàng.",
     notFound:
       "Chúng tôi không tìm thấy đơn hàng đó. Nếu bạn vừa thanh toán, hãy kiểm tra biên nhận trong email — liên kết xác nhận ở đó sẽ mở đơn hàng.",
     continue: "Tiếp tục mua sắm",

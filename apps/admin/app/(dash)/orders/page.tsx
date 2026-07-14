@@ -13,9 +13,24 @@ const STATUS_STYLES: Record<string, string> = {
   REFUNDED: "bg-amber-100 text-amber-700",
 };
 
-export default async function OrdersPage() {
-  const orders = await apiAdminOrders();
+const STATUS_FILTERS = [
+  "PENDING",
+  "PAID",
+  "FULFILLED",
+  "SHIPPED",
+  "DELIVERED",
+  "CANCELLED",
+  "REFUNDED",
+];
+
+export default async function OrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
+  const [orders, { status }] = await Promise.all([apiAdminOrders(), searchParams]);
   const needingReview = orders.filter((o) => o.needsReview).length;
+  const filtered = status ? orders.filter((o) => o.status === status) : orders;
 
   return (
     <div>
@@ -27,6 +42,28 @@ export default async function OrdersPage() {
             (paid but short on stock).
           </p>
         )}
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-1.5">
+        <Link
+          href="/orders"
+          className={`rounded-full px-3 py-1 text-xs font-medium ${
+            !status ? "bg-primary text-white" : "bg-neutral-100 text-neutral-600"
+          }`}
+        >
+          All
+        </Link>
+        {STATUS_FILTERS.map((s) => (
+          <Link
+            key={s}
+            href={`/orders?status=${s}`}
+            className={`rounded-full px-3 py-1 text-xs font-medium ${
+              status === s ? "bg-primary text-white" : "bg-neutral-100 text-neutral-600"
+            }`}
+          >
+            {s}
+          </Link>
+        ))}
       </div>
 
       <div className="overflow-hidden rounded-xl border bg-white">
@@ -42,7 +79,7 @@ export default async function OrdersPage() {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {orders.map((o) => (
+            {filtered.map((o) => (
               <tr key={o.id} className="hover:bg-neutral-50">
                 <td className="px-4 py-2.5 font-mono text-xs">
                   {o.orderNumber}
@@ -76,10 +113,10 @@ export default async function OrdersPage() {
                 </td>
               </tr>
             ))}
-            {orders.length === 0 && (
+            {filtered.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-10 text-center text-neutral-500">
-                  No orders yet.
+                  No orders {status ? `with status ${status}` : "yet"}.
                 </td>
               </tr>
             )}

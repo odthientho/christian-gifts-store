@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { DollarSign, ShoppingCart, AlertTriangle } from "lucide-react";
+import { DollarSign, ShoppingCart, AlertTriangle, Clock } from "lucide-react";
 
 import { apiAdminDashboard } from "@/lib/api";
 import { formatCents } from "@gin/contracts";
@@ -28,7 +28,22 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Dashboard</h1>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      {summary.pendingPaymentCount > 0 && (
+        <Link
+          href="/orders?status=PENDING"
+          className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-5 py-3.5 text-sm text-amber-800 transition-colors hover:bg-amber-100"
+        >
+          <span className="flex items-center gap-2.5">
+            <Clock className="size-4" strokeWidth={2} />
+            {summary.pendingPaymentCount} order
+            {summary.pendingPaymentCount === 1 ? "" : "s"} awaiting payment —
+            contact the customer to collect payment and fulfil.
+          </span>
+          <span className="font-medium underline">Review orders →</span>
+        </Link>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           label="Total sales"
           value={formatCents(summary.totalSalesCents)}
@@ -39,6 +54,12 @@ export default async function DashboardPage() {
           value={summary.totalOrders.toString()}
           icon={ShoppingCart}
           tone="neutral"
+        />
+        <KpiCard
+          label="Awaiting payment"
+          value={summary.pendingPaymentCount.toString()}
+          icon={Clock}
+          tone={summary.pendingPaymentCount > 0 ? "warning" : "neutral"}
         />
         <KpiCard
           label="Needs review"

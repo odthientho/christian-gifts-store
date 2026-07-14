@@ -39,8 +39,9 @@ export class OrdersController {
     private readonly stripe: StripeService,
   ) {}
 
-  // Each hit creates a real order row and a real Stripe Checkout Session — a
-  // tighter limit than the global default, matching the original design.
+  // Each hit creates a real order row (and a real Stripe Checkout Session,
+  // when payments are enabled) — a tighter limit than the global default,
+  // matching the original design.
   @Post("checkout")
   @Throttle({ default: { ttl: 600_000, limit: 20 } })
   async checkout(
@@ -50,7 +51,14 @@ export class OrdersController {
   ) {
     const siteUrl =
       process.env.STOREFRONT_URL ?? origin ?? "http://localhost:3000";
-    return this.orders.createCheckout(body.email, user?.sub, body.cartToken, siteUrl);
+    return this.orders.createCheckout(body, user?.sub, siteUrl);
+  }
+
+  // Lets the storefront show the right checkout copy (and skip expecting a
+  // Stripe redirect) without guessing from an error message.
+  @Get("config")
+  getConfig() {
+    return { paymentsEnabled: this.orders.paymentsEnabled() };
   }
 
   @Get("orders/:orderNumber")
@@ -80,6 +88,16 @@ export class OrdersController {
   @Roles("ADMIN")
   listAll() {
     return this.orders.listAllOrders();
+  }
+
+  // Registered ahead of the `:orderNumber` route below — Nest matches routes
+  // in declaration order, and `:orderNumber` would otherwise swallow this
+  // literal path.
+  @Get("admin/orders/pending-count")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("ADMIN")
+  async pendingPaymentCount() {
+    return { count: await this.orders.countPendingPayment() };
   }
 
   @Get("admin/dashboard")

@@ -8,6 +8,9 @@ import type {
   HeroSlideDTO,
   PromoTileDTO,
   MyOrderListItemDTO,
+  CheckoutInput,
+  CheckoutResultDTO,
+  PublicConfigDTO,
 } from "@gin/contracts";
 
 // Server-side client for the GIN API. Runs in Server Components / route handlers
@@ -181,18 +184,23 @@ export function apiUpdateCartItem(
 // --- Checkout & orders -----------------------------------------------------
 
 export function apiCheckout(
-  email: string,
+  input: Omit<CheckoutInput, "cartToken">,
   cartToken: string | undefined,
   visitorIp?: string,
   sessionToken?: string,
 ) {
-  return apiSend<{ url: string }>(
+  return apiSend<CheckoutResultDTO>(
     "/checkout",
     "POST",
-    { email, cartToken },
+    { ...input, cartToken },
     visitorIp,
     sessionToken,
   );
+}
+
+/** Public runtime config — whether checkout collects real payment right now. */
+export async function apiGetConfig(): Promise<PublicConfigDTO> {
+  return (await apiGet<PublicConfigDTO>("/config")) ?? { paymentsEnabled: false };
 }
 
 /** Returns the order only if the caller (by session or cart token) owns it. */
