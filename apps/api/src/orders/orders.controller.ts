@@ -73,6 +73,13 @@ export class OrdersController {
     return this.orders.listAllOrders();
   }
 
+  @Get("admin/dashboard")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("ADMIN")
+  getDashboard() {
+    return this.orders.getDashboardSummary();
+  }
+
   @Get("admin/orders/:orderNumber")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("ADMIN")

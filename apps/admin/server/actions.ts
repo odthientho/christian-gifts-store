@@ -39,7 +39,7 @@ export async function loginAction(
     return { ok: false, error: "This account is not an administrator." };
   }
   await setToken(res.data.token);
-  redirect("/products");
+  redirect("/dashboard");
 }
 
 export async function logoutAction(): Promise<void> {

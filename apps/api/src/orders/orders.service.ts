@@ -8,6 +8,7 @@ import {
   type AdminOrderDTO,
   type AdminOrderListItemDTO,
   type OrderStatusDTO,
+  type DashboardSummaryDTO,
 } from "@gin/contracts";
 
 import { StripeService } from "./stripe.service.js";
@@ -15,6 +16,12 @@ import { StripeService } from "./stripe.service.js";
 function newOrderNumber(): string {
   return `GIN-${randomBytes(4).toString("hex").toUpperCase()}`;
 }
+
+// Orders in these statuses represent money actually collected — used both for
+// the dashboard's revenue total and for attributing category/day revenue.
+const REVENUE_STATUSES: OrderStatusDTO[] = ["PAID", "FULFILLED"];
+const LOW_STOCK_THRESHOLD = 5;
+const REVENUE_HISTORY_DAYS = 14;
 
 @Injectable()
 export class OrdersService {
@@ -340,6 +347,84 @@ export class OrdersService {
 
     await prisma.order.update({ where: { orderNumber }, data: { status } });
     return this.getOrderForAdmin(orderNumber);
+  }
+
+  /**
+   * Every figure here comes from real order/product rows. This app has no
+   * visit or session tracking, so metrics like "visitors" or "conversion
+   * rate" are deliberately not computed rather than faked.
+   */
+  async getDashboardSummary(): Promise<DashboardSummaryDTO> {
+    const since = new Date();
+    since.setUTCHours(0, 0, 0, 0);
+    since.setUTCDate(since.getUTCDate() - (REVENUE_HISTORY_DAYS - 1));
+
+    const [salesAgg, totalOrders, ordersNeedingReview, recentOrders, ordersInRange, lineItems, lowStockProducts] =
+      await Promise.all([
+        prisma.order.aggregate({
+          where: { status: { in: REVENUE_STATUSES } },
+          _sum: { totalCents: true },
+        }),
+        prisma.order.count({
+          where: { status: { in: [...REVENUE_STATUSES, "REFUNDED"] } },
+        }),
+        prisma.order.count({ where: { needsReview: true } }),
+        prisma.order.findMany({ orderBy: { createdAt: "desc" }, take: 5 }),
+        prisma.order.findMany({
+          where: { status: { in: REVENUE_STATUSES }, createdAt: { gte: since } },
+          select: { totalCents: true, createdAt: true },
+        }),
+        prisma.orderItem.findMany({
+          where: { order: { status: { in: REVENUE_STATUSES } } },
+          select: {
+            unitPriceCents: true,
+            quantity: true,
+            product: { select: { category: { select: { name: true } } } },
+          },
+        }),
+        prisma.product.findMany({
+          where: { active: true, stock: { lte: LOW_STOCK_THRESHOLD } },
+          orderBy: { stock: "asc" },
+          take: 5,
+          select: { slug: true, title: true, stock: true },
+        }),
+      ]);
+
+    const byDay = new Map<string, number>();
+    for (let i = 0; i < REVENUE_HISTORY_DAYS; i++) {
+      const d = new Date(since);
+      d.setUTCDate(d.getUTCDate() + i);
+      byDay.set(d.toISOString().slice(0, 10), 0);
+    }
+    for (const order of ordersInRange) {
+      const key = order.createdAt.toISOString().slice(0, 10);
+      if (byDay.has(key)) byDay.set(key, (byDay.get(key) ?? 0) + order.totalCents);
+    }
+    const revenueByDay = [...byDay.entries()].map(([date, totalCents]) => ({
+      date,
+      totalCents,
+    }));
+
+    const categoryTotals = new Map<string, number>();
+    for (const item of lineItems) {
+      const name = item.product?.category?.name ?? "Uncategorized";
+      const lineTotal = item.unitPriceCents * item.quantity;
+      categoryTotals.set(name, (categoryTotals.get(name) ?? 0) + lineTotal);
+    }
+    const topCategories = [...categoryTotals.entries()]
+      .map(([name, totalCents]) => ({ name, totalCents }))
+      .sort((a, b) => b.totalCents - a.totalCents)
+      .slice(0, 5);
+
+    return {
+      totalSalesCents: salesAgg._sum.totalCents ?? 0,
+      totalOrders,
+      ordersNeedingReview,
+      revenueByDay,
+      topCategories,
+      lowStockProducts,
+      recentOrders: recentOrders.map(toAdminListItem),
+    };
   }
 }
 

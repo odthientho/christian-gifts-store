@@ -10,6 +10,7 @@ import type {
   AdminOrderListItemDTO,
   HeroSlideDTO,
   PromoTileDTO,
+  DashboardSummaryDTO,
 } from "@gin/contracts";
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000/api";
@@ -141,6 +142,13 @@ export function apiDeleteCategory(slug: string) {
     method: "DELETE",
     auth: true,
   });
+}
+
+// --- Dashboard (admin, authed) ------------------------------------------------
+
+export async function apiAdminDashboard(): Promise<DashboardSummaryDTO | null> {
+  const r = await request<DashboardSummaryDTO>("/admin/dashboard", { auth: true });
+  return r.ok ? r.data : null;
 }
 
 // --- Orders (admin, authed) --------------------------------------------------

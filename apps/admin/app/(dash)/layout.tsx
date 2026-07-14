@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { requireAdmin } from "@/lib/require-admin";
 import { logoutAction } from "@/server/actions";
+import { SidebarNav } from "@/components/sidebar-nav";
 
 export default async function DashLayout({
   children,
@@ -9,40 +10,31 @@ export default async function DashLayout({
   children: React.ReactNode;
 }) {
   const admin = await requireAdmin();
+  const initial = admin.email.charAt(0).toUpperCase();
 
   return (
-    <div className="min-h-screen">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-5xl items-center gap-6 px-4 py-3">
-          <Link href="/products" className="font-bold tracking-tight">
-            GIN<span className="text-primary"> Store</span>
-            <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-wider text-primary">
-              Admin
-            </span>
-          </Link>
-          <nav className="flex flex-1 gap-5 text-sm">
-            <Link href="/products" className="text-neutral-600 hover:text-primary">
-              Products
-            </Link>
-            <Link href="/categories" className="text-neutral-600 hover:text-primary">
-              Categories
-            </Link>
-            <Link href="/orders" className="text-neutral-600 hover:text-primary">
-              Orders
-            </Link>
-            <Link href="/content" className="text-neutral-600 hover:text-primary">
-              Site content
-            </Link>
-          </nav>
-          <span className="text-xs text-neutral-500">{admin.email}</span>
+    <div className="flex min-h-screen">
+      <aside className="flex w-60 shrink-0 flex-col border-r bg-white">
+        <Link href="/dashboard" className="flex items-center px-4 py-4 font-bold tracking-tight">
+          GIN<span className="text-primary"> Store</span>
+        </Link>
+        <SidebarNav />
+      </aside>
+
+      <div className="flex flex-1 flex-col">
+        <header className="flex items-center justify-end gap-3 border-b bg-white px-6 py-3">
+          <span className="text-sm text-neutral-500">{admin.email}</span>
+          <span className="grid size-8 place-items-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+            {initial}
+          </span>
           <form action={logoutAction}>
             <button className="text-sm text-neutral-600 hover:text-primary">
               Sign out
             </button>
           </form>
-        </div>
-      </header>
-      <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+        </header>
+        <main className="flex-1 px-6 py-8">{children}</main>
+      </div>
     </div>
   );
 }
