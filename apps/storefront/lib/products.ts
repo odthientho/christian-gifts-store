@@ -36,7 +36,7 @@ export async function getCategoryShowcases(perCategory = 4) {
         category: c.slug,
         limit: perCategory,
       });
-      return { id: c.id, slug: c.slug, name: c.name, products };
+      return { id: c.id, slug: c.slug, name: c.name, imageUrl: c.imageUrl, products };
     }),
   );
   return showcases
