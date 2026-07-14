@@ -4,6 +4,7 @@ import { BookOpen, Gift, Star } from "lucide-react";
 import { formatCents } from "@/lib/money";
 import { interpolate, type Dictionary } from "@/lib/i18n";
 import { productImage } from "@/lib/site-images";
+import { toAbsoluteImageUrl } from "@/lib/image-url";
 
 export type CardProduct = {
   id: string;
@@ -31,7 +32,9 @@ export function ProductCard({
 
   // A photo dropped into /public/img/products/<slug>.jpg wins; otherwise the
   // stored imageUrl, otherwise the gradient placeholder.
-  const image = productImage(product.slug) ?? product.imageUrl;
+  const image =
+    productImage(product.slug) ??
+    (product.imageUrl ? toAbsoluteImageUrl(product.imageUrl) : null);
 
   const meta =
     product.bookDetail?.author ?? product.giftDetail?.occasion ?? null;

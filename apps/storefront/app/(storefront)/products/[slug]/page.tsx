@@ -14,6 +14,7 @@ import {
 import { AddToCartButton } from "@/components/storefront/add-to-cart-button";
 import { Separator } from "@/components/ui/separator";
 import { productImage } from "@/lib/site-images";
+import { toAbsoluteImageUrl } from "@/lib/image-url";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -39,7 +40,9 @@ export default async function ProductPage({ params }: Props) {
   const soldOut = product.stock <= 0;
   const isBook = product.type === "BOOK";
   const Icon = isBook ? BookOpen : Gift;
-  const image = productImage(product.slug) ?? product.imageUrl;
+  const image =
+    productImage(product.slug) ??
+    (product.imageUrl ? toAbsoluteImageUrl(product.imageUrl) : null);
   const backHref = isBook ? "/books" : "/gifts";
   const backLabel = isBook ? dict.catalog.booksTitle : dict.catalog.giftsTitle;
 
