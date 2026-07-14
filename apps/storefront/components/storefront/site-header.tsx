@@ -60,7 +60,13 @@ export async function SiteHeader() {
             </div>
 
             {user ? (
-              <div className="hidden sm:block">
+              <div className="hidden items-center gap-1.5 sm:flex">
+                <Link
+                  href="/orders"
+                  className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                >
+                  {dict.nav.myOrders}
+                </Link>
                 <SignOutButton label={dict.nav.signOut} />
               </div>
             ) : (

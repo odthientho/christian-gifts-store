@@ -11,6 +11,8 @@ const STATUS_STYLES: Record<string, string> = {
   PENDING: "bg-neutral-100 text-neutral-600",
   PAID: "bg-emerald-100 text-emerald-700",
   FULFILLED: "bg-blue-100 text-blue-700",
+  SHIPPED: "bg-indigo-100 text-indigo-700",
+  DELIVERED: "bg-emerald-100 text-emerald-700",
   CANCELLED: "bg-neutral-100 text-neutral-500 line-through",
   REFUNDED: "bg-amber-100 text-amber-700",
 };

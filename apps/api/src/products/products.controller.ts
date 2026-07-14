@@ -59,6 +59,15 @@ export class ProductsController {
     return this.products.listAll();
   }
 
+  // Registered ahead of the `:slug` route below — Nest matches routes in
+  // declaration order, and `:slug` would otherwise swallow this literal path.
+  @Get("admin/products/low-stock-count")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("ADMIN")
+  async lowStockCount() {
+    return { count: await this.products.countLowStock() };
+  }
+
   @Get("admin/products/:slug")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("ADMIN")

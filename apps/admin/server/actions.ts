@@ -98,8 +98,9 @@ export async function deleteProductAction(slug: string): Promise<void> {
 export async function updateOrderStatusAction(
   orderNumber: string,
   status: string,
+  tracking?: { carrier?: string; trackingNumber?: string },
 ): Promise<ActionResult> {
-  const res = await apiUpdateOrderStatus(orderNumber, status);
+  const res = await apiUpdateOrderStatus(orderNumber, status, tracking);
   if (!res.ok) return { ok: false, error: res.error };
   revalidatePath(`/orders/${orderNumber}`);
   revalidatePath("/orders");

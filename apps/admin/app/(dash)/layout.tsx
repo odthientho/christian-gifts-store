@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { requireAdmin } from "@/lib/require-admin";
+import { apiLowStockCount } from "@/lib/api";
 import { logoutAction } from "@/server/actions";
 import { SidebarNav } from "@/components/sidebar-nav";
 
@@ -9,7 +10,10 @@ export default async function DashLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const admin = await requireAdmin();
+  const [admin, lowStockCount] = await Promise.all([
+    requireAdmin(),
+    apiLowStockCount(),
+  ]);
   const initial = admin.email.charAt(0).toUpperCase();
 
   return (
@@ -18,7 +22,7 @@ export default async function DashLayout({
         <Link href="/dashboard" className="flex items-center px-4 py-4 font-bold tracking-tight">
           GIN<span className="text-primary"> Store</span>
         </Link>
-        <SidebarNav />
+        <SidebarNav lowStockCount={lowStockCount} />
       </aside>
 
       <div className="flex flex-1 flex-col">

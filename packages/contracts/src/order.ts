@@ -4,6 +4,8 @@ export const ORDER_STATUSES = [
   "PENDING",
   "PAID",
   "FULFILLED",
+  "SHIPPED",
+  "DELIVERED",
   "CANCELLED",
   "REFUNDED",
 ] as const;
@@ -30,7 +32,18 @@ export type OrderDTO = {
   orderNumber: string;
   status: OrderStatusDTO;
   totalCents: number;
+  carrier: string | null;
+  trackingNumber: string | null;
   items: OrderItemDTO[];
+};
+
+/** Row shape for a signed-in customer's own order history — no address or items. */
+export type MyOrderListItemDTO = {
+  orderNumber: string;
+  status: OrderStatusDTO;
+  totalCents: number;
+  itemCount: number;
+  createdAt: string;
 };
 
 // The admin view of an order — everything a customer's own view deliberately
@@ -53,6 +66,8 @@ export type AdminOrderDTO = {
   shippingState: string | null;
   shippingPostal: string | null;
   shippingCountry: string | null;
+  carrier: string | null;
+  trackingNumber: string | null;
   stripeSessionId: string | null;
   stripePaymentIntentId: string | null;
   paidAt: string | null;
@@ -66,5 +81,9 @@ export type AdminOrderListItemDTO = Omit<AdminOrderDTO, "items">;
 
 export const updateOrderStatusSchema = z.object({
   status: z.enum(ORDER_STATUSES),
+  // Only meaningful alongside status: SHIPPED — set together so "mark shipped"
+  // is one action, not two.
+  carrier: z.string().trim().min(1).max(100).nullish(),
+  trackingNumber: z.string().trim().min(1).max(100).nullish(),
 });
 export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;

@@ -163,12 +163,23 @@ export async function apiAdminOrder(orderNumber: string): Promise<AdminOrderDTO 
   return r.ok ? r.data : null;
 }
 
-export function apiUpdateOrderStatus(orderNumber: string, status: string) {
+export function apiUpdateOrderStatus(
+  orderNumber: string,
+  status: string,
+  tracking?: { carrier?: string; trackingNumber?: string },
+) {
   return request<AdminOrderDTO>(`/admin/orders/${orderNumber}/status`, {
     method: "POST",
     auth: true,
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, ...tracking }),
   });
+}
+
+export async function apiLowStockCount(): Promise<number> {
+  const r = await request<{ count: number }>("/admin/products/low-stock-count", {
+    auth: true,
+  });
+  return r.ok ? r.data.count : 0;
 }
 
 // --- Site content: hero slides (admin, authed) --------------------------------

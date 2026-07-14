@@ -9,9 +9,11 @@ import {
   type AdminOrderListItemDTO,
   type OrderStatusDTO,
   type DashboardSummaryDTO,
+  type MyOrderListItemDTO,
 } from "@gin/contracts";
 
 import { StripeService } from "./stripe.service.js";
+import { LOW_STOCK_THRESHOLD } from "../products/products.service.js";
 
 function newOrderNumber(): string {
   return `GIN-${randomBytes(4).toString("hex").toUpperCase()}`;
@@ -19,8 +21,7 @@ function newOrderNumber(): string {
 
 // Orders in these statuses represent money actually collected — used both for
 // the dashboard's revenue total and for attributing category/day revenue.
-const REVENUE_STATUSES: OrderStatusDTO[] = ["PAID", "FULFILLED"];
-const LOW_STOCK_THRESHOLD = 5;
+const REVENUE_STATUSES: OrderStatusDTO[] = ["PAID", "FULFILLED", "SHIPPED", "DELIVERED"];
 const REVENUE_HISTORY_DAYS = 14;
 
 @Injectable()
@@ -175,6 +176,8 @@ export class OrdersService {
         totalCents: true,
         userId: true,
         cartId: true,
+        carrier: true,
+        trackingNumber: true,
         items: {
           select: {
             id: true,
@@ -191,6 +194,8 @@ export class OrdersService {
       orderNumber: order.orderNumber,
       status: order.status,
       totalCents: order.totalCents,
+      carrier: order.carrier,
+      trackingNumber: order.trackingNumber,
       items: order.items,
     });
 
@@ -341,12 +346,42 @@ export class OrdersService {
   async updateOrderStatus(
     orderNumber: string,
     status: OrderStatusDTO,
+    carrier?: string | null,
+    trackingNumber?: string | null,
   ): Promise<AdminOrderDTO> {
     const existing = await prisma.order.findUnique({ where: { orderNumber } });
     if (!existing) throw new NotFoundException("Order not found");
 
-    await prisma.order.update({ where: { orderNumber }, data: { status } });
+    // `undefined` here means "not provided" and Prisma leaves the column
+    // untouched; `null` explicitly clears it. Only meaningful when marking an
+    // order SHIPPED, but harmless to accept alongside any other status.
+    await prisma.order.update({
+      where: { orderNumber },
+      data: { status, carrier, trackingNumber },
+    });
     return this.getOrderForAdmin(orderNumber);
+  }
+
+  /** A signed-in customer's own order history — no address, Stripe ids, or line items. */
+  async listMyOrders(userId: string): Promise<MyOrderListItemDTO[]> {
+    const orders = await prisma.order.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        orderNumber: true,
+        status: true,
+        totalCents: true,
+        createdAt: true,
+        _count: { select: { items: true } },
+      },
+    });
+    return orders.map((o) => ({
+      orderNumber: o.orderNumber,
+      status: o.status,
+      totalCents: o.totalCents,
+      itemCount: o._count.items,
+      createdAt: o.createdAt.toISOString(),
+    }));
   }
 
   /**
@@ -445,6 +480,8 @@ function toAdminListItem(order: {
   shippingState: string | null;
   shippingPostal: string | null;
   shippingCountry: string | null;
+  carrier: string | null;
+  trackingNumber: string | null;
   stripeSessionId: string | null;
   stripePaymentIntentId: string | null;
   paidAt: Date | null;
@@ -468,6 +505,8 @@ function toAdminListItem(order: {
     shippingState: order.shippingState,
     shippingPostal: order.shippingPostal,
     shippingCountry: order.shippingCountry,
+    carrier: order.carrier,
+    trackingNumber: order.trackingNumber,
     stripeSessionId: order.stripeSessionId,
     stripePaymentIntentId: order.stripePaymentIntentId,
     paidAt: order.paidAt?.toISOString() ?? null,

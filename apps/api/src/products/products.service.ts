@@ -17,24 +17,26 @@ import {
 
 import { toProductDTO, productInclude } from "./product.mapper.js";
 
+// A product page reads "0" or "3 left" as fine until an admin actually looks;
+// this is also what makes a listing show up on the dashboard's low-stock
+// widget and the admin sidebar badge — one threshold, shared everywhere.
+export const LOW_STOCK_THRESHOLD = 5;
+
 @Injectable()
 export class ProductsService {
   /** Public catalog listing. Only active products are ever returned. */
   async list(query: ProductQuery): Promise<ProductDTO[]> {
+    const searchIds = query.search
+      ? await this.searchProductIds(query.search)
+      : undefined;
+
     const rows = await prisma.product.findMany({
       where: {
         active: true,
         ...(query.type ? { type: query.type } : {}),
         ...(query.featured ? { featured: true } : {}),
         ...(query.category ? { category: { slug: query.category } } : {}),
-        ...(query.search
-          ? {
-              OR: [
-                { title: { contains: query.search, mode: "insensitive" } },
-                { description: { contains: query.search, mode: "insensitive" } },
-              ],
-            }
-          : {}),
+        ...(searchIds ? { id: { in: searchIds } } : {}),
       },
       orderBy: query.featured
         ? { createdAt: "desc" }
@@ -43,6 +45,30 @@ export class ProductsService {
       include: productInclude,
     });
     return rows.map(toProductDTO);
+  }
+
+  /**
+   * Accent- and case-insensitive substring match over title and description,
+   * via Postgres's `unaccent` extension. A plain `contains` misses "kinh
+   * thanh" against "Kinh Thánh" — the accented and unaccented forms are
+   * different strings to a byte-for-byte comparison. Runs as a separate
+   * query (rather than inline SQL fragments in the main `findMany`) so the
+   * rest of the filtering, ordering, and `include` stays regular Prisma.
+   */
+  private async searchProductIds(search: string): Promise<string[]> {
+    const rows = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM "Product"
+      WHERE unaccent(lower(title)) LIKE '%' || unaccent(lower(${search})) || '%'
+         OR unaccent(lower(description)) LIKE '%' || unaccent(lower(${search})) || '%'
+    `;
+    return rows.map((r) => r.id);
+  }
+
+  /** Count of active products at or below the low-stock threshold. */
+  async countLowStock(): Promise<number> {
+    return prisma.product.count({
+      where: { active: true, stock: { lte: LOW_STOCK_THRESHOLD } },
+    });
   }
 
   /** Admin listing — includes inactive products, which the public list hides. */

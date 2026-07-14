@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 
-import { apiGetOrder } from "@/lib/api-client";
+import { apiGetOrder, apiGetMyOrders } from "@/lib/api-client";
 import { CART_COOKIE } from "@/lib/cart-cookie";
 import { getSessionToken } from "@/lib/session";
 
@@ -19,4 +19,11 @@ export async function getOwnedOrder(orderNumber: string) {
     cookies().then((jar) => jar.get(CART_COOKIE)?.value),
   ]);
   return apiGetOrder(orderNumber, sessionToken, cartToken);
+}
+
+/** A signed-in customer's own order history. Empty for a guest (no token). */
+export async function getMyOrders() {
+  const sessionToken = await getSessionToken();
+  if (!sessionToken) return [];
+  return apiGetMyOrders(sessionToken);
 }

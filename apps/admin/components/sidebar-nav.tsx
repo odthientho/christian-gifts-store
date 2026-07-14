@@ -18,7 +18,7 @@ const ITEMS = [
   { href: "/content", label: "Site content", icon: ImageIcon },
 ];
 
-export function SidebarNav() {
+export function SidebarNav({ lowStockCount = 0 }: { lowStockCount?: number }) {
   const pathname = usePathname();
 
   return (
@@ -37,6 +37,16 @@ export function SidebarNav() {
           >
             <Icon className="size-5" strokeWidth={1.75} />
             {label}
+            {href === "/products" && lowStockCount > 0 && (
+              <span
+                title={`${lowStockCount} product${lowStockCount === 1 ? "" : "s"} low on stock`}
+                className={`ml-auto grid size-5 place-items-center rounded-full text-[0.65rem] font-semibold tabular-nums ${
+                  active ? "bg-white/25 text-white" : "bg-amber-100 text-amber-700"
+                }`}
+              >
+                {lowStockCount}
+              </span>
+            )}
           </Link>
         );
       })}

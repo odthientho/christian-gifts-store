@@ -64,6 +64,15 @@ export class OrdersController {
     return this.orders.getOwnedOrder(orderNumber, user?.sub, cartToken);
   }
 
+  // Stacks JwtAuthGuard on top of the controller's OptionalJwtGuard — unlike
+  // every other route here, a guest has no account to look an order history
+  // up under, so this one actually requires sign-in.
+  @Get("orders")
+  @UseGuards(JwtAuthGuard)
+  listMine(@CurrentUser() user: JwtClaims) {
+    return this.orders.listMyOrders(user.sub);
+  }
+
   // --- Admin -------------------------------------------------------------
 
   @Get("admin/orders")
@@ -94,7 +103,12 @@ export class OrdersController {
     @Param("orderNumber") orderNumber: string,
     @Body(new ZodValidationPipe(updateOrderStatusSchema)) body: UpdateOrderStatusInput,
   ) {
-    return this.orders.updateOrderStatus(orderNumber, body.status);
+    return this.orders.updateOrderStatus(
+      orderNumber,
+      body.status,
+      body.carrier,
+      body.trackingNumber,
+    );
   }
 
   @Post("stripe/webhook")
