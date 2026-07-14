@@ -88,9 +88,11 @@ export async function updateProductAction(
   redirect("/products");
 }
 
-export async function deleteProductAction(slug: string): Promise<void> {
-  await apiDeleteProduct(slug);
+export async function deleteProductAction(slug: string): Promise<ActionResult> {
+  const res = await apiDeleteProduct(slug);
+  if (!res.ok) return { ok: false, error: res.error };
   revalidatePath("/products");
+  return { ok: true };
 }
 
 // --- Orders ------------------------------------------------------------------
@@ -138,9 +140,11 @@ export async function updateCategoryAction(
   redirect("/categories");
 }
 
-export async function deleteCategoryAction(slug: string): Promise<void> {
-  await apiDeleteCategory(slug);
+export async function deleteCategoryAction(slug: string): Promise<ActionResult> {
+  const res = await apiDeleteCategory(slug);
+  if (!res.ok) return { ok: false, error: res.error };
   revalidatePath("/categories");
+  return { ok: true };
 }
 
 // --- Site content: hero slides ---------------------------------------------------
@@ -178,9 +182,11 @@ export async function updateHeroSlideAction(
   redirect("/content");
 }
 
-export async function deleteHeroSlideAction(id: string): Promise<void> {
-  await apiDeleteHeroSlide(id);
+export async function deleteHeroSlideAction(id: string): Promise<ActionResult> {
+  const res = await apiDeleteHeroSlide(id);
+  if (!res.ok) return { ok: false, error: res.error };
   revalidatePath("/content");
+  return { ok: true };
 }
 
 // --- Site content: promo tiles ---------------------------------------------------
@@ -217,9 +223,11 @@ export async function updatePromoTileAction(
   redirect("/content");
 }
 
-export async function deletePromoTileAction(id: string): Promise<void> {
-  await apiDeletePromoTile(id);
+export async function deletePromoTileAction(id: string): Promise<ActionResult> {
+  const res = await apiDeletePromoTile(id);
+  if (!res.ok) return { ok: false, error: res.error };
   revalidatePath("/content");
+  return { ok: true };
 }
 
 // --- Images --------------------------------------------------------------------

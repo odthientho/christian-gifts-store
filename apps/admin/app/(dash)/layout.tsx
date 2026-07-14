@@ -32,7 +32,10 @@ export default async function DashLayout({
         />
       </aside>
 
-      <div className="flex flex-1 flex-col">
+      {/* min-w-0 overrides flex's default min-width:auto — without it, a
+          wide table inside `main` would force this whole column (and the
+          page) wider than the viewport instead of scrolling internally. */}
+      <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-3 border-b bg-white px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
             <MobileSidebarToggle>
@@ -58,7 +61,7 @@ export default async function DashLayout({
             </form>
           </div>
         </header>
-        <main className="flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
+        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
       </div>
     </div>
   );
