@@ -13,6 +13,7 @@ import type {
 } from "@gin/contracts";
 
 import { TokenService } from "./jwt.strategy.js";
+import { CartService } from "../cart/cart.service.js";
 
 const BCRYPT_COST = 12;
 
@@ -26,7 +27,10 @@ const DUMMY_HASH =
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly tokens: TokenService) {}
+  constructor(
+    private readonly tokens: TokenService,
+    private readonly cart: CartService,
+  ) {}
 
   async register(input: RegisterInput): Promise<AuthResponse> {
     const email = input.email.toLowerCase();
@@ -38,6 +42,7 @@ export class AuthService {
     const user = await prisma.user.create({
       data: { email, name: input.name, passwordHash, role: "USER" },
     });
+    await this.mergeCartBestEffort(user.id, input.cartToken);
     return this.issue(user);
   }
 
@@ -50,7 +55,27 @@ export class AuthService {
     if (!ok || !user?.passwordHash) {
       throw new UnauthorizedException("Invalid email or password");
     }
+
+    await this.mergeCartBestEffort(user.id, input.cartToken);
     return this.issue(user);
+  }
+
+  /**
+   * Fold this browser's guest cart into the account's cart, so a cart built
+   * before signing in (or registering) isn't lost. Best-effort: a failure
+   * here must not block login/registration itself.
+   */
+  private async mergeCartBestEffort(
+    userId: string,
+    cartToken: string | undefined,
+  ): Promise<void> {
+    if (!cartToken) return;
+    try {
+      await this.cart.mergeGuestCartIntoUser(userId, cartToken);
+    } catch {
+      // Swallow — worst case the guest cart is untouched and still there
+      // under its old token, which simply won't be looked up again.
+    }
   }
 
   async me(userId: string): Promise<AuthUserDTO> {

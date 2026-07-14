@@ -10,15 +10,6 @@ generator client {
   output   = "../src/generated/prisma"
 }
 
-// The storefront compiles its own client from this shared schema as app-source
-// (Turbopack-friendly). Only the schema and migrations are shared; each app
-// gets a client generated for its own bundler. Cart, checkout, orders and auth
-// still read Postgres directly during the migration; products go via the API.
-generator storefront {
-  provider = "prisma-client"
-  output   = "../../../apps/storefront/lib/generated/prisma"
-}
-
 datasource db {
   provider = "postgresql"
 }
@@ -102,7 +93,60 @@ model Category {
   id       String    @id @default(cuid())
   slug     String    @unique
   name     String
+  // Points at GET /images/:id when the admin uploaded a file (bytes live in
+  // Image, below); may also be a plain external URL for seeded/legacy data.
+  imageUrl String?
   products Product[]
+}
+
+// ---------------------------------------------------------------------------
+// Images — uploaded bytes, stored in Postgres rather than a file store or
+// object storage. Chosen for this project's scale: no bucket/volume to
+// provision. Product.imageUrl and Category.imageUrl point at GET /images/:id
+// when they reference a row here, exactly like they'd point at any other URL.
+// ---------------------------------------------------------------------------
+
+model Image {
+  id        String   @id @default(cuid())
+  data      Bytes
+  mimeType  String
+  filename  String?
+  createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Storefront content the admin can edit without a deploy: the home page's
+// hero carousel and promo tiles. `order` controls display order; `active`
+// lets the admin hide a slide/tile without deleting it.
+// ---------------------------------------------------------------------------
+
+model HeroSlide {
+  id         String   @id @default(cuid())
+  order      Int      @default(0)
+  active     Boolean  @default(true)
+  verseRefVi String
+  verseRefEn String
+  textVi     String   @db.Text
+  textEn     String   @db.Text
+  imageUrl   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([order])
+}
+
+model PromoTile {
+  id        String   @id @default(cuid())
+  order     Int      @default(0)
+  active    Boolean  @default(true)
+  labelVi   String
+  labelEn   String
+  href      String
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([order])
 }
 
 model Product {

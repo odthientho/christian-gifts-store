@@ -8,21 +8,36 @@ import {
 } from "@/lib/products";
 import { getDictionary, getLocale } from "@/lib/i18n";
 import { heroImages, promoImage } from "@/lib/site-images";
+import { apiGetHeroSlides, apiGetPromoTiles } from "@/lib/api-client";
 import { ProductCard } from "@/components/storefront/product-card";
 import { HeroCarousel } from "@/components/storefront/hero-carousel";
 import { SectionHeading } from "@/components/storefront/section-heading";
 import { CategoryShowcase } from "@/components/storefront/category-showcase";
 
+const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
+function toAbsolute(url: string): string {
+  return /^https?:\/\//.test(url) ? url : `${API_ORIGIN}${url}`;
+}
+
+const PROMO_GRADIENTS = [
+  "linear-gradient(140deg, oklch(0.62 0.19 28), oklch(0.7 0.15 45))",
+  "linear-gradient(140deg, oklch(0.4 0.09 250), oklch(0.5 0.1 210))",
+];
+
 export default async function HomePage() {
-  const [featured, newArrivals, showcases, dict, locale] = await Promise.all([
-    getFeaturedProducts(5),
-    getNewProducts(10),
-    getCategoryShowcases(4),
-    getDictionary(),
-    getLocale(),
-  ]);
+  const [featured, newArrivals, showcases, dict, locale, heroSlides, promoTiles] =
+    await Promise.all([
+      getFeaturedProducts(5),
+      getNewProducts(10),
+      getCategoryShowcases(4),
+      getDictionary(),
+      getLocale(),
+      apiGetHeroSlides(),
+      apiGetPromoTiles(),
+    ]);
 
   // Optional photos, resolved from /public/img at render. Absent → gradients.
+  // Used only as a fallback when no admin-managed hero photos are configured.
   const hero = heroImages();
   const giftsPromo = promoImage("gifts");
   const booksPromo = promoImage("books");
@@ -32,24 +47,39 @@ export default async function HomePage() {
       {/* Hero: 2/3 Scripture carousel + 1/3 stacked promo tiles */}
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <HeroCarousel locale={locale} images={hero} />
+          <HeroCarousel locale={locale} slides={heroSlides} images={hero} />
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-          <PromoTile
-            href="/gifts"
-            label={dict.home.shopGifts}
-            icon={<Gift className="size-6" strokeWidth={1.5} />}
-            image={giftsPromo}
-            gradient="linear-gradient(140deg, oklch(0.62 0.19 28), oklch(0.7 0.15 45))"
-          />
-          <PromoTile
-            href="/books"
-            label={dict.home.shopBooks}
-            icon={<BookOpen className="size-6" strokeWidth={1.5} />}
-            image={booksPromo}
-            gradient="linear-gradient(140deg, oklch(0.4 0.09 250), oklch(0.5 0.1 210))"
-          />
+          {promoTiles.length > 0 ? (
+            promoTiles.map((t, i) => (
+              <PromoTile
+                key={t.id}
+                href={t.href}
+                label={locale === "vi" ? t.labelVi : t.labelEn}
+                icon={<Gift className="size-6" strokeWidth={1.5} />}
+                image={t.imageUrl ? toAbsolute(t.imageUrl) : null}
+                gradient={PROMO_GRADIENTS[i % PROMO_GRADIENTS.length]}
+              />
+            ))
+          ) : (
+            <>
+              <PromoTile
+                href="/gifts"
+                label={dict.home.shopGifts}
+                icon={<Gift className="size-6" strokeWidth={1.5} />}
+                image={giftsPromo}
+                gradient="linear-gradient(140deg, oklch(0.62 0.19 28), oklch(0.7 0.15 45))"
+              />
+              <PromoTile
+                href="/books"
+                label={dict.home.shopBooks}
+                icon={<BookOpen className="size-6" strokeWidth={1.5} />}
+                image={booksPromo}
+                gradient="linear-gradient(140deg, oklch(0.4 0.09 250), oklch(0.5 0.1 210))"
+              />
+            </>
+          )}
         </div>
       </section>
 

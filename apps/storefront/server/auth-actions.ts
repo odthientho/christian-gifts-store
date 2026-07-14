@@ -1,10 +1,11 @@
 "use server";
 
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { apiLogin, apiRegister } from "@/lib/api-client";
 import { setSessionToken } from "@/lib/session";
+import { CART_COOKIE } from "@/lib/cart-cookie";
 import { loginSchema, registerSchema } from "@/lib/validations/auth";
 import { clientIp, rateLimit, LIMITS } from "@/lib/rate-limit";
 
@@ -42,19 +43,29 @@ export async function loginAction(
     return { ok: false, error: "Enter a valid email and password." };
   }
 
+  const jar = await cookies();
+  const guestCartToken = jar.get(CART_COOKIE)?.value;
+
   // Forward the real visitor IP: every storefront->API call otherwise arrives
   // from this server's single IP, which would make the API's own per-IP
   // throttle see one shared identity for the whole site instead of per visitor.
+  // Also forward any guest cart token so the API can fold it into the
+  // account's cart — a cart built before signing in should not be lost.
   const result = await apiLogin(
     parsed.data.email,
     parsed.data.password,
     throttled.ip,
+    guestCartToken,
   );
   // The API returns a deliberately vague message that never reveals whether the
   // email exists; surface it as-is.
   if (!result.ok) return { ok: false, error: result.error };
 
   await setSessionToken(result.data.token);
+  // The guest cart, if any, no longer exists — it was merged and deleted
+  // server-side. Drop the now-stale cookie rather than keep sending it.
+  if (guestCartToken) jar.delete(CART_COOKIE);
+
   redirect(safeCallback(callbackUrl));
 }
 
@@ -70,15 +81,21 @@ export async function registerAction(input: unknown): Promise<AuthActionResult> 
     };
   }
 
+  const jar = await cookies();
+  const guestCartToken = jar.get(CART_COOKIE)?.value;
+
   const result = await apiRegister(
     parsed.data.name,
     parsed.data.email,
     parsed.data.password,
     throttled.ip,
+    guestCartToken,
   );
   if (!result.ok) return { ok: false, error: result.error };
 
   await setSessionToken(result.data.token);
+  if (guestCartToken) jar.delete(CART_COOKIE);
+
   redirect("/");
 }
 

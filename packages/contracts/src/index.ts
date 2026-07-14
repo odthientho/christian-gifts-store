@@ -7,3 +7,4 @@ export * from "./product.js";
 export * from "./auth.js";
 export * from "./cart.js";
 export * from "./order.js";
+export * from "./content.js";

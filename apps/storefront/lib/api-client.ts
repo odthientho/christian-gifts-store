@@ -5,6 +5,8 @@ import type {
   OrderDTO,
   AuthResponse,
   AuthUserDTO,
+  HeroSlideDTO,
+  PromoTileDTO,
 } from "@gin/contracts";
 
 // Server-side client for the GIN API. Runs in Server Components / route handlers
@@ -17,12 +19,17 @@ type FetchOpts = { revalidate?: number };
 
 async function apiGet<T>(
   path: string,
-  opts: FetchOpts = {},
+  opts: FetchOpts & { sessionToken?: string } = {},
 ): Promise<T | null> {
+  const headers: Record<string, string> = { accept: "application/json" };
+  if (opts.sessionToken) headers.authorization = `Bearer ${opts.sessionToken}`;
+
   const res = await fetch(`${API_URL}${path}`, {
     // Product data changes rarely; revalidate on a short window by default.
-    next: { revalidate: opts.revalidate ?? 30 },
-    headers: { accept: "application/json" },
+    // A per-caller request (session token present) must never be cached and
+    // served to a different caller, so it forces revalidate: 0.
+    next: { revalidate: opts.sessionToken ? 0 : (opts.revalidate ?? 30) },
+    headers,
   });
   if (res.status === 404) return null;
   if (!res.ok) {
@@ -63,6 +70,18 @@ export async function apiListCategories(
   return (await apiGet<ApiCategory[]>(`/categories${qs({ type })}`)) ?? [];
 }
 
+// --- Site content ------------------------------------------------------------
+// Admin-managed hero slides and promo tiles. Empty results are normal — the
+// callers fall back to hardcoded defaults when nothing has been configured.
+
+export async function apiGetHeroSlides(): Promise<HeroSlideDTO[]> {
+  return (await apiGet<HeroSlideDTO[]>("/hero-slides")) ?? [];
+}
+
+export async function apiGetPromoTiles(): Promise<PromoTileDTO[]> {
+  return (await apiGet<PromoTileDTO[]>("/promo-tiles")) ?? [];
+}
+
 // --- Cart ------------------------------------------------------------------
 // Cart calls are never cached and carry the caller's opaque cart token.
 
@@ -81,12 +100,14 @@ async function apiSend<T>(
   // on the actual caller — trusted here because CORS_ORIGINS restricts the API
   // to this app and the admin app, not arbitrary browsers.
   visitorIp?: string,
+  sessionToken?: string,
 ): Promise<ApiSendResult<T>> {
   const headers: Record<string, string> = {
     "content-type": "application/json",
     accept: "application/json",
   };
   if (visitorIp) headers["x-forwarded-for"] = visitorIp;
+  if (sessionToken) headers.authorization = `Bearer ${sessionToken}`;
 
   let res: Response;
   try {
@@ -109,56 +130,94 @@ async function apiSend<T>(
   return { ok: true, data: parsed as T };
 }
 
-export async function apiGetCart(token: string | undefined): Promise<CartViewDTO | null> {
-  if (!token) return null;
-  return apiGet<CartViewDTO>(`/cart${qs({ token })}`, { revalidate: 0 });
+// A cart request carries a session token (signed in — the API resolves the
+// cart by userId and this wins) and/or a guest cart token (the API falls back
+// to it only when there is no valid session). Passing both is normal right
+// after sign-in, in the brief window before the storefront stops sending the
+// now-merged guest token.
+
+export async function apiGetCart(
+  sessionToken: string | undefined,
+  cartToken: string | undefined,
+): Promise<CartViewDTO | null> {
+  if (!sessionToken && !cartToken) return null;
+  return apiGet<CartViewDTO>(`/cart${qs({ token: cartToken })}`, {
+    revalidate: 0,
+    sessionToken,
+  });
 }
 
 export function apiAddToCart(
-  token: string | undefined,
+  sessionToken: string | undefined,
+  cartToken: string | undefined,
   productId: string,
   quantity: number,
 ) {
-  return apiSend<CartViewDTO>("/cart/items", "POST", { token, productId, quantity });
+  return apiSend<CartViewDTO>(
+    "/cart/items",
+    "POST",
+    { token: cartToken, productId, quantity },
+    undefined,
+    sessionToken,
+  );
 }
 
 export function apiUpdateCartItem(
-  token: string,
+  sessionToken: string | undefined,
+  cartToken: string | undefined,
   productId: string,
   quantity: number,
 ) {
-  return apiSend<CartViewDTO>("/cart/items", "PATCH", { token, productId, quantity });
+  return apiSend<CartViewDTO>(
+    "/cart/items",
+    "PATCH",
+    { token: cartToken, productId, quantity },
+    undefined,
+    sessionToken,
+  );
 }
 
 // --- Checkout & orders -----------------------------------------------------
 
-export function apiCheckout(email: string, cartToken: string, visitorIp?: string) {
+export function apiCheckout(
+  email: string,
+  cartToken: string | undefined,
+  visitorIp?: string,
+  sessionToken?: string,
+) {
   return apiSend<{ url: string }>(
     "/checkout",
     "POST",
     { email, cartToken },
     visitorIp,
+    sessionToken,
   );
 }
 
-/** Returns the order only if the cart token entitles the caller; else null. */
+/** Returns the order only if the caller (by session or cart token) owns it. */
 export async function apiGetOrder(
   orderNumber: string,
+  sessionToken: string | undefined,
   cartToken: string | undefined,
 ): Promise<OrderDTO | null> {
   return apiGet<OrderDTO>(
     `/orders/${encodeURIComponent(orderNumber)}${qs({ cartToken })}`,
-    { revalidate: 0 },
+    { revalidate: 0, sessionToken },
   );
 }
 
 // --- Auth ------------------------------------------------------------------
 
-export function apiLogin(email: string, password: string, visitorIp?: string) {
+export function apiLogin(
+  email: string,
+  password: string,
+  visitorIp?: string,
+  cartToken?: string,
+) {
   return apiSend<AuthResponse>(
     "/auth/login",
     "POST",
-    { email, password },
+    { email, password, cartToken },
     visitorIp,
   );
 }
@@ -168,11 +227,12 @@ export function apiRegister(
   email: string,
   password: string,
   visitorIp?: string,
+  cartToken?: string,
 ) {
   return apiSend<AuthResponse>(
     "/auth/register",
     "POST",
-    { name, email, password },
+    { name, email, password, cartToken },
     visitorIp,
   );
 }

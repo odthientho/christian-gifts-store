@@ -38,6 +38,32 @@ export class JwtAuthGuard implements CanActivate {
   }
 }
 
+/**
+ * Like JwtAuthGuard, but never rejects: a missing or invalid token just means
+ * an anonymous caller (`req.user` stays undefined). For endpoints that behave
+ * differently for signed-in vs. guest callers — the cart — without requiring
+ * sign-in.
+ */
+@Injectable()
+export class OptionalJwtGuard implements CanActivate {
+  constructor(private readonly tokens: TokenService) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const req = context.switchToHttp().getRequest<AuthedRequest>();
+    const header = req.headers.authorization ?? "";
+    const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+    if (token) {
+      try {
+        req.user = this.tokens.verify(token);
+      } catch {
+        // Invalid/expired token on an optional-auth route: treat as anonymous
+        // rather than reject, since the caller didn't ask to be signed in here.
+      }
+    }
+    return true;
+  }
+}
+
 export const ROLES_KEY = "roles";
 /** `@Roles("ADMIN")` on a handler requires that role after JwtAuthGuard runs. */
 export const Roles = (...roles: RoleDTO[]) => SetMetadata(ROLES_KEY, roles);

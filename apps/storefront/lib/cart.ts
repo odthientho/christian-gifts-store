@@ -10,9 +10,12 @@ import {
 } from "@gin/contracts";
 import { apiGetCart } from "@/lib/api-client";
 import { CART_COOKIE } from "@/lib/cart-cookie";
+import { getSessionToken } from "@/lib/session";
 
-// Cart state now lives behind the API. The storefront only holds the opaque
-// cart token (in an httpOnly cookie) and asks the API to compute the cart.
+// Cart state lives behind the API. Signed in, the cart is identified by the
+// session token (the API resolves it by userId); signed out, by the opaque
+// guest token in an httpOnly cookie. Sending both is harmless — the API always
+// prefers the session.
 
 export {
   CART_COOKIE,
@@ -25,8 +28,11 @@ export type CartLine = CartLineDTO;
 
 /** The current cart, or an empty one. Read-only — never mints a token. */
 export async function getCart(): Promise<CartView> {
-  const token = (await cookies()).get(CART_COOKIE)?.value;
-  const cart = await apiGetCart(token);
+  const [sessionToken, cartToken] = await Promise.all([
+    getSessionToken(),
+    cookies().then((jar) => jar.get(CART_COOKIE)?.value),
+  ]);
+  const cart = await apiGetCart(sessionToken, cartToken);
   return cart ?? EMPTY_CART;
 }
 

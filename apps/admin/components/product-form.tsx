@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { ProductDTO, CategoryDTO } from "@gin/contracts";
 
 import type { ActionResult } from "@/server/actions";
+import { ImageUpload } from "@/components/image-upload";
 
 type Action = (
   prev: ActionResult | null,
@@ -94,12 +95,10 @@ export function ProductForm({
         />
       </div>
 
-      <Field
-        label="Image URL"
-        name="imageUrl"
-        defaultValue={product?.imageUrl ?? ""}
-        hint="optional — e.g. /img/products/name.jpg"
-      />
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium">Image</label>
+        <ImageUpload name="imageUrl" initialUrl={product?.imageUrl} />
+      </div>
 
       <div className="flex gap-6">
         <Checkbox label="Active" name="active" defaultChecked={product?.active ?? true} />
